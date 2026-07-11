@@ -319,7 +319,7 @@
   @keyframes memoIn { from { opacity: 0; } to { opacity: 1; } }
   #memoBox {
     position: relative; width: min(88vw, 360px);
-    aspect-ratio: 1 / 1;
+    max-height: min(88vh, 640px); min-height: 340px;
     background: linear-gradient(180deg, #FBFDFF 0%, #E9F3F8 100%);
     border-radius: 22px;
     box-shadow: 0 30px 60px rgba(30,60,85,0.35),
@@ -329,6 +329,7 @@
     font-family: -apple-system, "PingFang SC", "Noto Serif SC", serif;
     color: var(--ink);
     animation: memoBoxIn .5s cubic-bezier(.2,.9,.3,1.2) both;
+    overflow: hidden; /* box 自己不滚，body 内部滚 */
   }
   @keyframes memoBoxIn { from { opacity: 0; transform: translateY(20px) scale(.94); } to { opacity: 1; transform: none; } }
   #memoBox::before {
@@ -342,6 +343,7 @@
     font-size: 22px; color: var(--ink-soft); line-height: 1; z-index: 2;
   }
   #memoHead {
+    flex: 0 0 auto; /* 头部不被内容挤压 */
     text-align: center; padding-bottom: 10px;
     border-bottom: 1px dashed rgba(91,155,181,0.28);
   }
@@ -351,14 +353,24 @@
   }
   #memoHead .h-en {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 9.5px; letter-spacing: 4px; color: var(--ink-soft);
-    margin-top: 5px;
+    font-size: 9.5px; letter-spacing: 2.8px; color: var(--ink-soft);
+    margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #memoBody {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    gap: 14px; padding: 10px 4px; min-height: 0;
+    flex: 1 1 auto; display: flex;
+    align-items: flex-start; /* 顶对齐，长内容也不会顶穿头部 */
+    justify-content: center; gap: 14px;
+    padding: 12px 4px; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
-  #memoJarSlot { flex: 0 0 auto; filter: drop-shadow(0 10px 14px rgba(58,90,120,0.28)); }
+  #memoBody::-webkit-scrollbar { width: 4px; }
+  #memoBody::-webkit-scrollbar-thumb { background: rgba(91,155,181,.28); border-radius: 4px; }
+  #memoJarSlot {
+    flex: 0 0 auto;
+    filter: drop-shadow(0 10px 14px rgba(58,90,120,0.28));
+    position: sticky; top: 0; /* 长内容滚动时罐子留在视野 */
+  }
   #memoJarSlot svg { display: block; }
   #memoInfo { flex: 1; min-width: 0; }
   #memoInfo .m-name {
@@ -390,6 +402,7 @@
     margin-bottom: 3px; text-transform: uppercase;
   }
   #memoFoot {
+    flex: 0 0 auto; /* 底部黑胶固定不被 body 挤 */
     display: flex; align-items: center; gap: 12px;
     padding-top: 10px; border-top: 1px dashed rgba(91,155,181,0.28);
   }
