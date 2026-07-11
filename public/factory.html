@@ -101,7 +101,9 @@
   /* ================= 3 倾诉 ================= */
   #sceneTalk { padding: 18px; }
   #emotionPill {
-    align-self: center; display: none; align-items: center; gap: 8px;
+    /* 数据后台照常跑，UI 隐藏——只做背后驱动，不打扰用户；档案馆里再呈现 */
+    display: none !important;
+    align-self: center; align-items: center; gap: 8px;
     padding: 6px 12px; margin-bottom: 6px;
     background: rgba(250,253,255,.9); border-radius: 999px;
     box-shadow: 0 6px 18px rgba(90,140,170,.14), inset 0 0 0 1px rgba(159,198,216,.35);
@@ -364,6 +366,21 @@
   #memoInfo .m-quote {
     font-size: 12.5px; line-height: 1.7; color: var(--ink);
     padding-top: 8px; border-top: 1px dashed rgba(91,155,181,0.28);
+  }
+  /* 当时的自己 · LLM 一句话总结（档案馆里的时间胶囊） */
+  #memoInfo .m-memory {
+    margin-top: 10px; padding: 8px 10px;
+    background: rgba(212, 165, 116, 0.08);
+    border-left: 2px solid rgba(212, 165, 116, 0.55);
+    border-radius: 4px;
+    font-family: 'Caveat', 'PingFang SC', cursive;
+    font-size: 14px; line-height: 1.55; color: #6D5A3D;
+  }
+  #memoInfo .m-memory[hidden] { display: none; }
+  #memoInfo .m-memory .label {
+    display: block; font-family: 'Cormorant Garamond', serif;
+    font-size: 9.5px; letter-spacing: 3px; color: #B39561;
+    margin-bottom: 3px; text-transform: uppercase;
   }
   #memoFoot {
     display: flex; align-items: center; gap: 12px;
@@ -735,6 +752,7 @@
         <div class="m-name" id="memoName">静水</div>
         <div class="m-meta" id="memoMeta">N° 01 · 2026·07·11 · 平静</div>
         <div class="m-quote" id="memoQuote">「那一刻，你把它从心里取了出来。」</div>
+        <div class="m-memory" id="memoMemory" hidden></div>
       </div>
     </div>
     <div id="memoFoot">
@@ -773,6 +791,7 @@ const S = {
   nameOptions: null,
   nameOptionsPromise: null,
   nameOptionsVersion: 0,
+  finalSummary: "",      // 档案馆里的"当时的自己"总结
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -2004,6 +2023,12 @@ $("nameConfirmBtn").onclick = async () => {
   $("musicRow").classList.add("show");
   $("toCollectionBtn").style.display = "inline-block";
   pollMusic();
+  // 后台异步生成"当时的自己"总结——档案馆的回忆卡要用
+  if (S.sessionId) {
+    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "POST", body: {} })
+      .then((out) => { if (out && out.ok) S.finalSummary = out.summary; })
+      .catch(() => {});
+  }
 };
 
 /* ---- 音乐轮询与播放 ---- */
@@ -2228,6 +2253,7 @@ function buildCollection() {
       song: musicUrl ? ($("musicTitle").textContent || "《 今日 · 一段声音 》") : "《 今日 · 尚未成形 》",
       today: true,
       comp: realComp,
+      memory: S.finalSummary || "",  // "当时的自己"总结；若还没生成，openMemo 里再兜底拉一次
     });
     $("colTodayNote").innerHTML = `《 ${S.artworkName} 》 已 入 藏 · 点 开 回 忆 当 时`;
   }
@@ -2254,6 +2280,31 @@ function openMemo(m) {
   $("memoMeta").textContent = `N° ${m.num} · ${m.date} · ${m.emo}${m.today ? " · 今日" : ""}`;
   $("memoQuote").textContent = `「${m.quote}」`;
   $("memoSong").textContent = m.song;
+
+  // "当时的自己"：只在有 memory 时显示；今日罐子若还没生成，兜底拉一次
+  const memoryEl = $("memoMemory");
+  const paintMemory = (text) => {
+    if (text && text.trim()) {
+      memoryEl.innerHTML = `<span class="label">当 时 的 自 己</span>${text.trim()}`;
+      memoryEl.hidden = false;
+    } else {
+      memoryEl.hidden = true;
+      memoryEl.innerHTML = "";
+    }
+  };
+  paintMemory(m.memory);
+  if (m.today && !m.memory && S.sessionId) {
+    // 后台补拉一次；若已缓存 server 会直接返回
+    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "GET" })
+      .then((out) => {
+        if (out && out.ok && out.summary) {
+          S.finalSummary = out.summary;
+          m.memory = out.summary;
+          paintMemory(out.summary);
+        }
+      })
+      .catch(() => {});
+  }
 
   // 用一个稳定容器替换罐子内容，避免 outerHTML 丢引用
   const slot = $("memoJarSlot");
