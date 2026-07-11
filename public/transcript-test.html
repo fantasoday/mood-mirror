@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>余烬 Ember · 实时倾诉转写测试</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #15161a;
+      --panel: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.13);
+      --line: rgba(255, 255, 255, 0.17);
+      --text: #f6f2ea;
+      --muted: rgba(246, 242, 234, 0.68);
+      --gold: #d7b56d;
+      --blue: #9ed7ff;
+      --green: #9be5bd;
+      --red: #f29b9b;
+    }
+
+    html, body { min-height: 100%; margin: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(158, 215, 255, 0.2), transparent 32%),
+        radial-gradient(circle at 84% 28%, rgba(215, 181, 109, 0.18), transparent 28%),
+        linear-gradient(135deg, #111216 0%, #222025 52%, #15161a 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .shell {
+      width: min(1080px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .hero, .card {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(22px);
+      border-radius: 8px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
+    }
+
+    .hero {
+      min-height: calc(100vh - 48px);
+      padding: 28px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 22px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: flex-start;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 56px);
+      letter-spacing: 0;
+      line-height: 1.05;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 720px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: rgba(0, 0, 0, 0.18);
+      border-radius: 999px;
+      padding: 9px 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--red);
+      box-shadow: 0 0 16px var(--red);
+    }
+
+    .status.is-listening .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 440px;
+      display: grid;
+      place-items: center;
+      z-index: 1;
+    }
+
+    .factory-window {
+      width: min(520px, 88vw);
+      aspect-ratio: 1 / 1;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background:
+        linear-gradient(130deg, rgba(255,255,255,0.17), rgba(255,255,255,0.03) 40%, rgba(158,215,255,0.12)),
+        radial-gradient(circle at 50% 60%, rgba(215,181,109,0.12), transparent 38%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .factory-window::before,
+    .factory-window::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(62deg, transparent 0 38%, rgba(255,255,255,0.13) 39%, transparent 43%),
+        linear-gradient(118deg, transparent 0 57%, rgba(255,255,255,0.1) 58%, transparent 62%);
+      pointer-events: none;
+    }
+
+    .wave {
+      position: absolute;
+      inset: 42% 9% auto;
+      height: 94px;
+      opacity: 0.65;
+    }
+
+    .wave svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .transcript {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 28px;
+      min-height: 156px;
+      padding: 18px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(10, 11, 14, 0.62);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .final-text {
+      font-size: 20px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .interim-text {
+      min-height: 28px;
+      color: var(--blue);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .placeholder {
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      z-index: 1;
+      position: relative;
+    }
+
+    button, input, textarea {
+      font: inherit;
+    }
+
+    button {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 16px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      transition: transform 0.2s, background 0.2s, border-color 0.2s;
+    }
+
+    button:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.13); }
+    button:disabled { opacity: 0.48; cursor: not-allowed; transform: none; }
+
+    .primary {
+      background: var(--text);
+      color: #15161a;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .card {
+      padding: 18px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    label, .label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.24);
+      color: var(--text);
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    .meter {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .meter-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--gold));
+      transition: width 0.08s linear;
+    }
+
+    .payload {
+      margin: 0;
+      max-height: 360px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(246, 242, 234, 0.82);
+      background: rgba(0, 0, 0, 0.24);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .error {
+      color: var(--red);
+    }
+
+    @media (max-width: 860px) {
+      body { padding: 14px; }
+      .shell { grid-template-columns: 1fr; }
+      .hero { min-height: 680px; padding: 20px; }
+      .topbar { flex-direction: column; }
+      .status { white-space: normal; }
+      .transcript { left: 18px; right: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="topbar">
+        <div>
+          <h1>说说吧，你在想什么</h1>
+          <p class="subtitle">测试倾诉环节的麦克风实时转写。最终文字会流式显示在玻璃镜面上，并按《余烬 Ember》字段结构保存到本地后端。</p>
+        </div>
+        <div class="status" id="statusPill">
+          <span class="status-dot"></span>
+          <span id="statusText">未开启</span>
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="factory-window">
+          <div class="wave" aria-hidden="true">
+            <svg viewBox="0 0 420 100" preserveAspectRatio="none">
+              <path id="wavePath" d="M0 52 C45 18 78 86 122 52 S203 18 246 52 S330 86 420 52" fill="none" stroke="rgba(158,215,255,.75)" stroke-width="3"/>
+              <path d="M0 62 C55 38 84 78 130 62 S204 36 252 62 S346 82 420 62" fill="none" stroke="rgba(215,181,109,.45)" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="transcript">
+            <div class="label">实时转写</div>
+            <div class="final-text" id="finalText"><span class="placeholder">开启麦克风后，你说的话会出现在这里。</span></div>
+            <div class="interim-text" id="interimText"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn" class="primary">开启麦克风并开始转写</button>
+        <button id="stopBtn" disabled>停止</button>
+        <button id="clearBtn" disabled>清空本次前端显示</button>
+      </div>
+    </section>
+
+    <aside class="card">
+      <div class="field">
+        <label for="userId">userId</label>
+        <input id="userId" value="local_user" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="manualText">文字输入补充 textInput</label>
+        <textarea id="manualText" placeholder="也可以在这里补充无法说出口的内容"></textarea>
+        <button id="saveTextBtn" disabled>保存文字补充</button>
+      </div>
+
+      <div class="field">
+        <div class="label">麦克风音量估计 voiceVolume</div>
+        <div class="meter" aria-hidden="true"><div class="meter-fill" id="meterFill"></div></div>
+        <div class="small" id="volumeLabel">等待麦克风</div>
+      </div>
+
+      <div class="field">
+        <div class="label">后端记录</div>
+        <div class="small" id="sessionLine">尚未创建 session</div>
+        <pre class="payload" id="payloadPreview">{}</pre>
+      </div>
+
+      <div class="small" id="compatNote">
+        提示：实时语音识别使用浏览器 SpeechRecognition。Chrome / Edge 支持较好；如果浏览器不支持，会显示错误。
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const API_BASE = location.protocol === "file:" ? "http://localhost:5173" : "";
+
+    const els = {
+      startBtn: document.getElementById("startBtn"),
+      stopBtn: document.getElementById("stopBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      saveTextBtn: document.getElementById("saveTextBtn"),
+      userId: document.getElementById("userId"),
+      manualText: document.getElementById("manualText"),
+      statusPill: document.getElementById("statusPill"),
+      statusText: document.getElementById("statusText"),
+      finalText: document.getElementById("finalText"),
+      interimText: document.getElementById("interimText"),
+      payloadPreview: document.getElementById("payloadPreview"),
+      sessionLine: document.getElementById("sessionLine"),
+      meterFill: document.getElementById("meterFill"),
+      volumeLabel: document.getElementById("volumeLabel"),
+      compatNote: document.getElementById("compatNote"),
+      wavePath: document.getElementById("wavePath"),
+    };
+
+    const state = {
+      recognition: null,
+      sessionId: "",
+      finalText: "",
+      listening: false,
+      manualStop: false,
+      record: null,
+      audioContext: null,
+      analyser: null,
+      micStream: null,
+      volumeLevel: 0,
+      segmentStartedAt: 0,
+      recognitionRunId: 0,
+      processedFinalKeys: new Set(),
+      saveQueue: Promise.resolve(),
+      lastInterimText: "",
+      lastInterimSentAt: 0,
+      restartTimer: null,
+    };
+
+    if (!SpeechRecognition) {
+      els.startBtn.disabled = true;
+      els.compatNote.innerHTML = '<span class="error">当前浏览器不支持 SpeechRecognition，请用 Chrome 或 Edge 打开本页。</span>';
+      setStatus("浏览器不支持实时识别", false);
+    }
+
+    if (location.protocol === "file:") {
+      els.compatNote.innerHTML = '当前是文件方式打开，已自动连接 <code>http://localhost:5173</code> 的本地后端。更推荐直接打开 <code>http://localhost:5173/transcript-test.html</code>。';
+    }
+
+    function setStatus(text, listening) {
+      els.statusText.textContent = text;
+      els.statusPill.classList.toggle("is-listening", Boolean(listening));
+    }
+
+    function renderTranscript(interim = "") {
+      els.finalText.innerHTML = "";
+      if (!state.finalText) {
+        const span = document.createElement("span");
+        span.className = "placeholder";
+        span.textContent = "我在听。你可以慢慢说。";
+        els.finalText.appendChild(span);
+      } else {
+        els.finalText.textContent = state.finalText;
+      }
+      els.interimText.textContent = interim;
+    }
+
+    function renderRecord(record) {
+      state.record = record;
+      els.payloadPreview.textContent = JSON.stringify(record, null, 2);
+      els.sessionLine.textContent = `sessionId: ${record.sessionId}`;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(`${API_BASE}${path}`, {
+        headers: { "Content-Type": "application/json" },
+        ...options,
+      });
+      const body = await res.json();
+      if (!res.ok || !body.ok) {
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      return body;
+    }
+
+    async function createSession() {
+      const body = await api("/api/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: els.userId.value.trim() || "local_user",
+          inputMode: "video+text",
+        }),
+      });
+      state.sessionId = body.record.sessionId;
+      renderRecord(body.record);
+      els.saveTextBtn.disabled = false;
+      return body.record;
+    }
+
+    async function saveTranscript(text, isFinal, durationMs = null) {
+      if (!state.sessionId || !text.trim()) return;
+      const body = await api(`/api/sessions/${state.sessionId}/transcript`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          text,
+          isFinal,
+          durationMs,
+          voiceVolume: state.volumeLevel,
+        }),
+      });
+      renderRecord(body.record);
+    }
+
+    function queueTranscriptSave(text, isFinal, durationMs = null) {
+      const cleanText = text.trim();
+      if (!cleanText) return;
+
+      const now = performance.now();
+      if (!isFinal) {
+        if (cleanText === state.lastInterimText && now - state.lastInterimSentAt < 800) return;
+        if (now - state.lastInterimSentAt < 350) return;
+        state.lastInterimText = cleanText;
+        state.lastInterimSentAt = now;
+      }
+
+      state.saveQueue = state.saveQueue
+        .then(() => saveTranscript(cleanText, isFinal, durationMs))
+        .catch((error) => {
+          els.compatNote.innerHTML = `<span class="error">保存转写失败：${error.message}</span>`;
+        });
+    }
+
+    async function saveManualText() {
+      if (!state.sessionId) return;
+      const body = await api(`/api/sessions/${state.sessionId}/text`, {
+        method: "PATCH",
+        body: JSON.stringify({ textInput: els.manualText.value }),
+      });
+      renderRecord(body.record);
+    }
+
+    async function startAudioMeter() {
+      state.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = state.audioContext.createMediaStreamSource(state.micStream);
+      state.analyser = state.audioContext.createAnalyser();
+      state.analyser.fftSize = 1024;
+      source.connect(state.analyser);
+      drawMeter();
+    }
+
+    function drawMeter() {
+      if (!state.analyser) return;
+      const data = new Uint8Array(state.analyser.fftSize);
+      state.analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (const value of data) {
+        const centered = (value - 128) / 128;
+        sum += centered * centered;
+      }
+      state.volumeLevel = Math.sqrt(sum / data.length);
+      const pct = Math.min(100, Math.round(state.volumeLevel * 520));
+      els.meterFill.style.width = `${pct}%`;
+      const label = state.volumeLevel < 0.04 ? "low" : state.volumeLevel > 0.16 ? "high" : "normal";
+      els.volumeLabel.textContent = `${label} · ${state.volumeLevel.toFixed(3)}`;
+      const waveAmp = 28 + pct * 0.22;
+      els.wavePath.setAttribute("d", `M0 52 C45 ${52 - waveAmp} 78 ${52 + waveAmp} 122 52 S203 ${52 - waveAmp} 246 52 S330 ${52 + waveAmp} 420 52`);
+      requestAnimationFrame(drawMeter);
+    }
+
+    function stopAudioMeter() {
+      if (state.micStream) {
+        for (const track of state.micStream.getTracks()) track.stop();
+      }
+      if (state.audioContext) state.audioContext.close();
+      state.micStream = null;
+      state.audioContext = null;
+      state.analyser = null;
+      state.volumeLevel = 0;
+      els.meterFill.style.width = "0%";
+      els.volumeLabel.textContent = "已停止";
+    }
+
+    function appendFinalText(text) {
+      const cleanText = text.trim();
+      if (!cleanText) return;
+      state.finalText = `${state.finalText}${state.finalText ? " " : ""}${cleanText}`;
+    }
+
+    function resetRecognitionCache() {
+      state.recognitionRunId += 1;
+      state.processedFinalKeys = new Set();
+      state.lastInterimText = "";
+      state.lastInterimSentAt = 0;
+      state.segmentStartedAt = performance.now();
+    }
+
+    function handleRecognitionResult(event) {
+      let interim = "";
+      const finalParts = [];
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const result = event.results[i];
+        const text = (result[0]?.transcript || "").trim();
+        if (!text) continue;
+
+        if (result.isFinal) {
+          const key = `${state.recognitionRunId}:${i}:${text}`;
+          if (!state.processedFinalKeys.has(key)) {
+            state.processedFinalKeys.add(key);
+            finalParts.push(text);
+          }
+        } else {
+          interim += text;
+        }
+      }
+
+      if (finalParts.length) {
+        const finalText = finalParts.join("，");
+        const durationMs = Math.round(performance.now() - state.segmentStartedAt);
+        state.segmentStartedAt = performance.now();
+        appendFinalText(finalText);
+        renderTranscript(interim);
+        queueTranscriptSave(finalText, true, durationMs);
+      } else {
+        renderTranscript(interim);
+      }
+
+      if (interim) {
+        queueTranscriptSave(interim, false);
+      }
+    }
+
+    function updateListeningButtons(isListening) {
+      els.startBtn.disabled = isListening;
+      els.stopBtn.disabled = !isListening;
+      els.clearBtn.disabled = false;
+    }
+
+    function scheduleRecognitionRestart() {
+      window.clearTimeout(state.restartTimer);
+      state.restartTimer = window.setTimeout(() => {
+        if (state.manualStop) return;
+        startRecognitionCycle();
+      }, 320);
+    }
+
+    function createRecognition(runId) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = "zh-CN";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        state.listening = true;
+        state.segmentStartedAt = performance.now();
+        setStatus("正在倾听", true);
+        updateListeningButtons(true);
+      };
+
+      recognition.onresult = (event) => {
+        if (runId !== state.recognitionRunId) return;
+        handleRecognitionResult(event);
+      };
+
+      recognition.onerror = (event) => {
+        if (runId !== state.recognitionRunId) return;
+        if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+          state.manualStop = true;
+          setStatus("麦克风或语音识别权限被拒绝", false);
+          updateListeningButtons(false);
+          stopAudioMeter();
+          return;
+        }
+        if (event.error === "no-speech") {
+          setStatus("还没听清，我继续听", true);
+          return;
+        }
+        setStatus(`识别短暂中断：${event.error}，正在续听`, true);
+      };
+
+      recognition.onend = () => {
+        if (runId !== state.recognitionRunId) return;
+        state.listening = false;
+        if (state.manualStop) {
+          setStatus("已停止", false);
+          updateListeningButtons(false);
+          return;
+        }
+        setStatus("识别短暂停止，正在续听", true);
+        scheduleRecognitionRestart();
+      };
+
+      return recognition;
+    }
+
+    function startRecognitionCycle() {
+      resetRecognitionCache();
+      const runId = state.recognitionRunId;
+      const recognition = createRecognition(runId);
+      state.recognition = recognition;
+      try {
+        recognition.start();
+      } catch (error) {
+        setStatus("启动识别失败，请重新开启", false);
+        updateListeningButtons(false);
+      }
+    }
+
+    async function startRecognition() {
+      if (!SpeechRecognition) return;
+      if (!state.sessionId) await createSession();
+
+      window.clearTimeout(state.restartTimer);
+      state.manualStop = false;
+      if (!state.micStream) await startAudioMeter();
+      startRecognitionCycle();
+    }
+
+    function stopRecognition() {
+      state.manualStop = true;
+      window.clearTimeout(state.restartTimer);
+      if (state.recognition) {
+        try { state.recognition.abort(); } catch (error) {}
+      }
+      state.recognition = null;
+      stopAudioMeter();
+      setStatus("已停止", false);
+      updateListeningButtons(false);
+    }
+
+    function clearTranscriptView() {
+      state.finalText = "";
+      state.lastInterimText = "";
+      state.lastInterimSentAt = 0;
+      renderTranscript("");
+
+      if (!state.manualStop && state.recognition) {
+        window.clearTimeout(state.restartTimer);
+        resetRecognitionCache();
+        try { state.recognition.abort(); } catch (error) {}
+        scheduleRecognitionRestart();
+      }
+    }
+
+    els.startBtn.addEventListener("click", async () => {
+      try {
+        await startRecognition();
+      } catch (error) {
+        setStatus("开启失败", false);
+        els.compatNote.innerHTML = `<span class="error">${error.message}</span>`;
+        els.startBtn.disabled = false;
+        els.stopBtn.disabled = true;
+        stopAudioMeter();
+      }
+    });
+
+    els.stopBtn.addEventListener("click", stopRecognition);
+    els.saveTextBtn.addEventListener("click", saveManualText);
+    els.clearBtn.addEventListener("click", clearTranscriptView);
+  </script>
+</body>
+</html>

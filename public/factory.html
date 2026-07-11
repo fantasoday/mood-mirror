@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>玻璃厂 · 一次情绪整合的仪式</title>
+<style>
+  :root {
+    --glass: #7A8FA8; --crack: #3E4A5F; --gold: #D4A574;
+    --ambient: #DCEDF5; --card: #F7FBFD;
+    --ink: #3A6B85; --ink-soft: #8FB6C9; --primary: #5B9BB5;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(170deg, #EDF6FA 0%, var(--ambient) 70%, #D2E7F1 100%);
+    color: var(--ink); overflow: hidden;
+    transition: background 1.2s ease;
+  }
+  #stage { position: relative; width: 100%; height: 100vh; max-width: 520px; margin: 0 auto; }
+
+  /* ---- 场景切换 ---- */
+  .scene { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; overflow: hidden; }
+  .scene.active { display: flex; animation: sceneIn 1s ease both; }
+  .scene.leaving { animation: sceneOut .6s ease both; }
+  @keyframes sceneIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes sceneOut { from { opacity: 1; } to { opacity: 0; } }
+  /* 推门转场：白色泛光 */
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 90; transition: opacity .6s ease; }
+
+  /* ---- 通用元件 ---- */
+  .btn {
+    border: none; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(135deg, #7FC4D8, #4A9EBF); color: #fff;
+    padding: 15px 44px; font-size: 16px; letter-spacing: 4px;
+    box-shadow: 0 10px 26px rgba(74,158,191,.45);
+    transition: transform .25s ease, box-shadow .25s ease, opacity .3s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:disabled { opacity: .35; cursor: default; transform: none; }
+  .btn.gold { background: linear-gradient(135deg, #C9A26E, #A97F4B); box-shadow: 0 10px 26px rgba(169,127,75,.4); }
+  .btn.ghost {
+    background: rgba(255,255,255,.78); color: var(--primary);
+    border: 1.5px solid rgba(91,155,181,.4); box-shadow: none;
+    padding: 12px 26px; font-size: 14px; letter-spacing: 2px;
+  }
+  .link { font-size: 13px; color: var(--primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; background: none; border: none; }
+  .card {
+    background: rgba(250,253,255,.94); border-radius: 20px; padding: 16px 20px;
+    box-shadow: 0 10px 30px rgba(90,140,170,.16);
+  }
+  .bubble {
+    background: rgba(250,253,255,.95); border-radius: 18px; padding: 15px 18px;
+    font-size: 14.5px; line-height: 1.8; box-shadow: 0 8px 24px rgba(90,140,170,.15);
+  }
+  .bubble .who { font-size: 11.5px; color: var(--ink-soft); margin-top: 6px; letter-spacing: 2px; }
+  .scene-title { font-size: 23px; letter-spacing: 9px; font-weight: 600; text-align: center; }
+  .scene-sub { font-size: 12px; color: var(--ink-soft); letter-spacing: 2px; text-align: center; margin-top: 8px; }
+  .hint { font-size: 12.5px; color: var(--ink-soft); letter-spacing: 1px; }
+
+  /* ---- 常驻 ---- */
+  #safety {
+    position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; z-index: 80;
+    font-size: 9.5px; color: #A3C4D4; letter-spacing: .5px; pointer-events: none;
+  }
+  #muteBtn {
+    position: fixed; top: 14px; right: 14px; z-index: 80; width: 38px; height: 38px;
+    border-radius: 50%; border: none; cursor: pointer; font-size: 16px;
+    background: rgba(255,255,255,.7); color: var(--primary); box-shadow: 0 4px 12px rgba(90,140,170,.2);
+  }
+  .particles { position: absolute; inset: 0; pointer-events: none; }
+  .particles i { position: absolute; border-radius: 50%; background: #fff; opacity: .7; animation: drift 9s ease-in-out infinite; }
+  @keyframes drift { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-16px); opacity: .9; } }
+
+  /* ================= 1 门口 ================= */
+  #sceneGate .bubble { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 280px; opacity: 0; transition: opacity 1.2s ease; }
+  #sceneGate .bubble.show { opacity: 1; }
+  #gateArt { position: absolute; bottom: 0; width: 100%; }
+  #enterBtn { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 1.2s ease; animation: breathe 3s ease-in-out infinite; }
+  #enterBtn.show { opacity: 1; }
+  @keyframes breathe { 0%,100% { box-shadow: 0 10px 26px rgba(74,158,191,.45); } 50% { box-shadow: 0 10px 40px rgba(74,158,191,.75); } }
+
+  /* ================= 2 镜像 ================= */
+  #sceneMirror { justify-content: center; gap: 18px; padding: 20px; }
+  #mirrorFrame {
+    width: min(78vw, 330px); background: #FAFDFF; border-radius: 22px; padding: 12px 12px 6px;
+    box-shadow: 0 18px 50px rgba(90,140,170,.22); transition: all .9s ease;
+  }
+  #mirrorFrame .live { font-size: 10px; color: var(--primary); letter-spacing: 2px; margin: 2px 0 4px 6px; }
+  #mirrorFrame .live .dot { color: #E86A5E; }
+  #mirrorFrame .note { font-size: 9px; color: #A3C4D4; text-align: center; margin: 4px 0; }
+  #permCard { text-align: center; max-width: 300px; }
+  #guessWrap { display: none; flex-direction: column; align-items: center; gap: 14px; }
+  #guessWrap.show { display: flex; }
+  #mirrorBtns { display: flex; gap: 12px; }
+
+  /* ================= 3 倾诉 ================= */
+  #sceneTalk { padding: 18px; }
+  #talkTop { width: 100%; display: flex; gap: 12px; align-items: flex-start; }
+  #mirrorDock { width: 118px; flex: 0 0 auto; }
+  #mirrorDock #mirrorFrame { width: 118px; padding: 6px 6px 2px; border-radius: 14px; }
+  #spiritSay { flex: 1; }
+  #shardSky { width: 100%; flex: 1; min-height: 200px; }
+  #captions { width: 100%; text-align: center; font-size: 13.5px; color: #6E9AB2; line-height: 1.9; min-height: 54px; padding: 0 12px; }
+  #captions .interim { opacity: .55; }
+  #talkControls { display: flex; flex-direction: column; align-items: center; gap: 9px; padding-bottom: 44px; width: 100%; }
+  #micBtn {
+    position: relative; width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #7FC4D8, #4A9EBF);
+    box-shadow: 0 12px 30px rgba(74,158,191,.5), 0 0 0 calc(var(--vol, 0) * 26px) rgba(127,196,216,.25);
+    display: flex; align-items: center; justify-content: center; touch-action: none;
+    transition: box-shadow .1s linear;
+  }
+  #micBtn.recording { background: linear-gradient(135deg, #E8A87F, #BF6A4A); }
+  #typeWrap { display: none; width: 100%; gap: 8px; }
+  #typeWrap.show { display: flex; }
+  #typeInput { flex: 1; border: 1.5px solid rgba(91,155,181,.4); border-radius: 14px; padding: 11px 14px; font-size: 14px; font-family: inherit; background: rgba(255,255,255,.85); color: var(--ink); outline: none; }
+  #toBenchBtn { opacity: 0; pointer-events: none; transition: opacity .8s; }
+  #toBenchBtn.show { opacity: 1; pointer-events: auto; }
+
+  /* ================= 4 工作台 ================= */
+  #sceneBench { padding: 16px 14px; }
+  #benchSvg { width: 100%; flex: 1; touch-action: none; }
+  #benchSay { width: 100%; text-align: center; font-size: 13px; line-height: 1.7; min-height: 40px; color: var(--ink); }
+  #benchSay small { color: var(--ink-soft); }
+  #benchFoot { padding: 10px 0 40px; }
+
+  /* ================= 5 熔炉 ================= */
+  #sceneFurnace { background: linear-gradient(175deg, #16283A 0%, #1E3448 55%, #33323C 100%); border-radius: 0; justify-content: center; gap: 8px; padding: 20px; }
+  #sceneFurnace .scene-title { color: #E8D5C0; }
+  #sceneFurnace .scene-sub { color: #7E93A5; }
+  #furnaceSvg { width: min(88vw, 390px); }
+  #heatWrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #heatRing { position: relative; width: 72px; height: 72px; cursor: pointer; touch-action: none; }
+  #heatHint { font-size: 13px; color: #D9C289; letter-spacing: 2px; }
+  #furnaceQuote { font-size: 13.5px; line-height: 1.9; color: #C9B896; text-align: center; min-height: 52px; opacity: 0; transition: opacity 1.2s; }
+  #furnaceQuote.show { opacity: 1; }
+
+  /* ================= 6 命名 ================= */
+  #sceneName { padding: 22px 20px; gap: 12px; overflow-y: auto; }
+  #artworkSvg { width: min(70vw, 280px); }
+  #nameChips { display: flex; flex-direction: column; gap: 9px; width: min(84vw, 320px); }
+  .chip {
+    border: 1.5px solid rgba(62,74,95,.25); border-radius: 14px; padding: 12px; cursor: pointer;
+    text-align: center; font-size: 14px; letter-spacing: 2px; background: rgba(255,255,255,.7);
+    color: var(--ink); transition: all .25s;
+  }
+  .chip.selected { border-color: var(--gold); background: rgba(212,165,116,.14); box-shadow: 0 4px 14px rgba(212,165,116,.25); }
+  #customName { width: 100%; border: none; border-bottom: 1.5px solid rgba(62,74,95,.28); background: transparent; padding: 9px 4px; font-size: 13.5px; font-family: inherit; color: var(--ink); outline: none; }
+  #closingCard { width: min(84vw, 320px); text-align: center; font-size: 13.5px; line-height: 1.9; display: none; }
+  #closingCard.show { display: block; animation: sceneIn .8s ease; }
+  #closingCard .date { font-size: 10.5px; color: var(--ink-soft); margin-top: 8px; letter-spacing: 1px; }
+  #musicRow { display: none; align-items: center; gap: 10px; font-size: 13px; color: var(--ink); }
+  #musicRow.show { display: flex; }
+  #playBtn { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; font-size: 17px; background: linear-gradient(135deg, #C9A26E, #A97F4B); color: #fff; box-shadow: 0 8px 20px rgba(169,127,75,.4); }
+  #playBtn.pulsing { animation: breathe 2s ease-in-out infinite; }
+  #nameFoot { display: flex; gap: 12px; padding-bottom: 46px; }
+
+  /* SVG 通用 */
+  .shard-poly { stroke: #fff; stroke-opacity: .8; stroke-width: 1.5; filter: drop-shadow(0 6px 6px rgba(90,140,170,.3)); }
+  .shard-label { fill: #fff; font-size: 13px; letter-spacing: 2px; pointer-events: none; }
+  text { user-select: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="particles" id="particles"></div>
+
+  <!-- ============ 1 门口 ============ -->
+  <section id="sceneGate" class="scene active">
+    <div class="bubble" id="gateBubble"><span id="gateLine"></span><div class="who">—— 玻璃精灵</div></div>
+    <svg id="gateArt" viewBox="0 0 520 430" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F4FAFD"/><stop offset="1" stop-color="#D9EBF4"/>
+        </linearGradient>
+        <linearGradient id="win" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#CFE7F2"/><stop offset="1" stop-color="#AFD4E6"/>
+        </linearGradient>
+      </defs>
+      <!-- 厂房 -->
+      <path d="M60 430 L60 190 L140 130 L220 190 L220 430 Z" fill="url(#wall)"/>
+      <path d="M220 430 L220 170 L460 170 L460 430 Z" fill="url(#wall)"/>
+      <path d="M50 196 L140 126 L230 196" fill="none" stroke="#B9D8E8" stroke-width="7" stroke-linecap="round"/>
+      <rect x="220" y="158" width="240" height="14" rx="7" fill="#C4DEEB"/>
+      <!-- 竖条玻璃窗 -->
+      <g fill="url(#win)">
+        <rect x="250" y="200" width="34" height="90" rx="6"/><rect x="300" y="200" width="34" height="90" rx="6"/>
+        <rect x="350" y="200" width="34" height="90" rx="6"/><rect x="400" y="200" width="34" height="90" rx="6"/>
+        <rect x="84" y="220" width="30" height="66" rx="6"/><rect x="132" y="220" width="30" height="66" rx="6"/>
+      </g>
+      <g stroke="#FFFFFF" stroke-width="2.5" opacity=".8">
+        <line x1="256" y1="206" x2="278" y2="284"/><line x1="306" y1="206" x2="328" y2="284"/>
+        <line x1="356" y1="206" x2="378" y2="284"/><line x1="406" y1="206" x2="428" y2="284"/>
+      </g>
+      <!-- 招牌 -->
+      <rect x="268" y="120" width="150" height="42" rx="10" fill="#FAFDFF" stroke="#C4DEEB" stroke-width="2"/>
+      <text x="343" y="148" text-anchor="middle" font-size="21" letter-spacing="14" fill="#3A6B85" font-weight="600">玻璃厂</text>
+      <!-- 门 -->
+      <rect x="300" y="320" width="86" height="110" rx="8" fill="#BFDDEC"/>
+      <rect x="308" y="328" width="70" height="102" rx="6" fill="#E7F3F9"/>
+      <!-- 小人 -->
+      <g id="gateFigure" stroke="#4A90B8" stroke-width="4.5" stroke-linecap="round" fill="none">
+        <circle cx="343" cy="322" r="17" fill="#FFFFFF"/>
+        <ellipse cx="337" cy="319" rx="1.8" ry="2.6" fill="#4A90B8" stroke="none"/>
+        <ellipse cx="349" cy="319" rx="1.8" ry="2.6" fill="#4A90B8" stroke="none"/>
+        <path d="M337 328 q6 4.5 12 0"/>
+        <line x1="343" y1="339" x2="343" y2="378"/>
+        <line x1="343" y1="348" x2="326" y2="362"/><line x1="343" y1="348" x2="360" y2="362"/>
+        <line x1="343" y1="378" x2="330" y2="404"/><line x1="343" y1="378" x2="356" y2="404"/>
+      </g>
+      <ellipse cx="343" cy="412" rx="52" ry="7" fill="#9FC6D8" opacity=".35"/>
+    </svg>
+    <button class="btn" id="enterBtn">进 入</button>
+  </section>
+
+  <!-- ============ 2 镜像 ============ -->
+  <section id="sceneMirror" class="scene">
+    <div id="mirrorFrame">
+      <div class="live"><span class="dot">●</span> LIVE · MIRROR 镜像</div>
+      <svg id="faceSvg" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="rf" x="-25%" y="-25%" width="150%" height="150%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3"/>
+          </filter>
+        </defs>
+        <line x1="8" y1="120" x2="192" y2="120" stroke="#D5E8F1" stroke-width="1.5"/>
+        <g filter="url(#rf)">
+          <g id="face" stroke="#4A90B8">
+            <circle cx="100" cy="88" r="54" fill="#FFFFFF" stroke-width="4.5"/>
+            <path id="browL" fill="none" stroke-width="4" stroke-linecap="round"/>
+            <path id="browR" fill="none" stroke-width="4" stroke-linecap="round"/>
+            <ellipse id="eyeL" cx="79" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
+            <ellipse id="eyeR" cx="121" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
+            <g id="blush" opacity="0" stroke="#EE9AA0" stroke-width="2.6" stroke-linecap="round">
+              <path d="M70 96 l7 4"/><path d="M67 102 l7 4"/><path d="M130 96 l-7 4"/><path d="M133 102 l-7 4"/>
+            </g>
+            <path id="mouth" fill="#fff" stroke-width="4" stroke-linejoin="round"/>
+            <path id="tear" opacity="0" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.2"/>
+          </g>
+          <!-- 火柴人身体（静态） -->
+          <g stroke="#4A90B8" stroke-width="4.5" stroke-linecap="round" fill="none">
+            <line x1="100" y1="142" x2="100" y2="196"/>
+            <line x1="100" y1="156" x2="76" y2="176"/><line x1="100" y1="156" x2="124" y2="176"/>
+            <line x1="100" y1="196" x2="84" y2="232"/><line x1="100" y1="196" x2="116" y2="232"/>
+          </g>
+        </g>
+      </svg>
+      <div class="note" id="mirrorNote">这面玻璃只在你的设备上亮着 · 画面不会上传</div>
+    </div>
+
+    <div class="card" id="permCard">
+      <p style="font-size:14.5px;line-height:1.8">这面玻璃想映出你的样子。<br/>画面只在你的设备上，不会上传。</p>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center">
+        <button class="btn" style="padding:13px 34px;font-size:15px" id="camBtn">让它看见我</button>
+        <button class="link" id="skipCamBtn">不开摄像头，直接进入 →</button>
+      </div>
+    </div>
+
+    <div id="guessWrap">
+      <div class="bubble" id="guessBubble" style="max-width:300px;text-align:center"></div>
+      <div id="mirrorBtns">
+        <button class="btn ghost" id="denyBtn">不太对，我来说</button>
+        <button class="btn" style="padding:12px 30px;font-size:15px;letter-spacing:2px" id="confirmBtn">是的，继续</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 倾诉 ============ -->
+  <section id="sceneTalk" class="scene">
+    <div id="talkTop">
+      <div id="mirrorDock"></div>
+      <div class="bubble" id="spiritSay"><span id="spiritLine"></span><div class="who">—— 玻璃精灵</div></div>
+    </div>
+    <svg id="shardSky" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="captions"><span id="finalCap"></span><span class="interim" id="interimCap"></span></div>
+    <div id="talkControls">
+      <button id="micBtn" title="按住说话">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round">
+          <rect x="9" y="3" width="6" height="11" rx="3" fill="#fff" stroke="none"/>
+          <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><line x1="12" y1="18" x2="12" y2="21"/>
+        </svg>
+      </button>
+      <div class="hint" id="micHint">按住说话 · 松开变成文字</div>
+      <button class="link" id="typeToggle">直接打字也可以</button>
+      <div id="typeWrap">
+        <input id="typeInput" placeholder="把想说的写在这里，回车放进空气里"/>
+        <button class="btn ghost" style="padding:10px 18px" id="typeSend">放 进</button>
+      </div>
+      <button class="btn ghost" id="toBenchBtn">就这些了，去工作台 →</button>
+    </div>
+  </section>
+
+  <!-- ============ 4 工作台 ============ -->
+  <section id="sceneBench" class="scene">
+    <div class="scene-title" style="margin-top:22px">工 作 台</div>
+    <div class="scene-sub">它们现在在你手上了</div>
+    <svg id="benchSvg" viewBox="0 0 480 560" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="218" width="440" height="12" rx="6" fill="#C4DEEB"/>
+      <rect x="20" y="228" width="440" height="30" rx="8" fill="#D4E8F2" opacity=".5"/>
+      <g id="canvasZone">
+        <rect x="34" y="286" width="412" height="252" rx="20" fill="rgba(255,255,255,.6)"
+              stroke="#9FC6D8" stroke-width="2" stroke-dasharray="7 7"/>
+        <path d="M240 512 C 148 452 96 390 108 342 C 117 302 168 292 202 318 C 222 334 235 356 240 374
+                 C 245 356 258 334 278 318 C 312 292 363 302 372 342 C 384 390 332 452 240 512 Z"
+              fill="none" stroke="#B7D6E4" stroke-width="1.8" stroke-dasharray="6 7"/>
+        <text x="240" y="308" text-anchor="middle" font-size="12" fill="#8FB6C9" letter-spacing="3">拖进来，拼成你想要的形状</text>
+      </g>
+      <g id="benchPieces"></g>
+    </svg>
+    <div id="benchSay">这些，就是刚才压在你心里的东西。<br/><small>点一点可以敲碎——碎片不会消失，它们是接下来要用的材料</small></div>
+    <div id="benchFoot"><button class="btn" id="toFurnaceBtn" disabled>送 入 熔 炉 →</button></div>
+  </section>
+
+  <!-- ============ 5 熔炉 ============ -->
+  <section id="sceneFurnace" class="scene">
+    <div class="scene-title" style="margin-top:10px">熔 炉 · 金 缮</div>
+    <div class="scene-sub">火不是销毁，是把碎片焊在一起</div>
+    <svg id="furnaceSvg" viewBox="0 0 390 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="glow" cx=".5" cy=".62" r=".55">
+          <stop offset="0" stop-color="#FFB25E" stop-opacity=".95"/>
+          <stop offset=".45" stop-color="#E8783A" stop-opacity=".55"/>
+          <stop offset="1" stop-color="#E8783A" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="flameG" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#FF9E42"/><stop offset="1" stop-color="#FFD9A0" stop-opacity=".2"/>
+        </linearGradient>
+      </defs>
+      <path d="M55 400 L55 220 Q55 110 195 110 Q335 110 335 220 L335 400 Z" fill="#0F1D2B" stroke="#31485C" stroke-width="2.5"/>
+      <path d="M80 400 L80 232 Q80 142 195 142 Q310 142 310 232 L310 400 Z" fill="#1A0F0A"/>
+      <ellipse id="glowE" cx="195" cy="310" rx="128" ry="118" fill="url(#glow)" opacity=".4"/>
+      <g id="flames" opacity=".5">
+        <path d="M150 388 Q142 336 162 306 Q170 336 178 320 Q186 286 195 268 Q204 286 212 320 Q220 336 228 306 Q248 336 240 388 Z" fill="url(#flameG)"/>
+        <path d="M168 388 Q164 352 178 332 Q186 352 195 324 Q204 352 212 332 Q226 352 222 388 Z" fill="#FFE1B0" opacity=".85"/>
+      </g>
+      <g id="furnacePiece" transform="translate(195 252) scale(0.62)"></g>
+      <path d="M80 232 Q80 142 195 142 Q310 142 310 232" fill="none" stroke="#5A4232" stroke-width="3"/>
+    </svg>
+    <div id="heatWrap">
+      <div id="heatRing">
+        <svg viewBox="0 0 72 72" style="position:absolute;inset:0">
+          <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="4"/>
+          <circle id="heatArc" cx="36" cy="36" r="32" fill="none" stroke="#F4C842" stroke-width="4" stroke-linecap="round"
+                  stroke-dasharray="201" stroke-dashoffset="201" transform="rotate(-90 36 36)"/>
+        </svg>
+        <div style="position:absolute;inset:14px;border-radius:50%;background:rgba(244,200,66,.16);display:flex;align-items:center;justify-content:center;font-size:20px">🔥</div>
+      </div>
+      <div id="heatHint">轻轻按住，为它加温</div>
+    </div>
+    <div id="furnaceQuote">「裂缝没有被藏起来——<br/>它们正在被镀成金色。」</div>
+  </section>
+
+  <!-- ============ 6 命名 ============ -->
+  <section id="sceneName" class="scene">
+    <div class="scene-title" style="margin-top:16px">它 成 形 了</div>
+    <div class="scene-sub">给它一个只属于今天的名字</div>
+    <svg id="artworkSvg" viewBox="0 0 300 240" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="halo" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stop-color="#D4A574" stop-opacity=".3"/><stop offset="1" stop-color="#D4A574" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="150" cy="120" rx="130" ry="98" fill="url(#halo)"/>
+      <g id="artworkPiece" transform="translate(150 120) scale(0.52)"></g>
+    </svg>
+    <div id="nameChips"></div>
+    <input id="customName" placeholder="或者，你想叫它——" maxlength="14"/>
+    <button class="btn gold" id="nameConfirmBtn" style="padding:13px 34px;font-size:15px" disabled>就 叫 这 个 名 字</button>
+    <div class="card" id="closingCard">
+      <div id="closingText">…</div>
+      <div class="date" id="closingDate"></div>
+    </div>
+    <div id="musicRow">
+      <button id="playBtn">♪</button>
+      <div><div id="musicTitle" style="letter-spacing:1px">为它烧一段声音…</div>
+      <div class="hint" id="musicHint">余温还在冷却</div></div>
+    </div>
+    <div id="nameFoot">
+      <button class="btn ghost" id="restartBtn">← 回到门口</button>
+    </div>
+  </section>
+</div>
+
+<div id="flash"></div>
+<button id="muteBtn" title="声音开关">♪</button>
+<div id="safety">如果此刻你感到难以承受，可以联系心理援助热线 · 这是一次情绪整合的仪式，不是心理治疗</div>
+
+<script src="voice-input.js"></script>
+<script src="music-engine.js"></script>
+<script type="module">
+import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
+
+const $ = (id) => document.getElementById(id);
+const lerp = (a, b, t) => a + (b - a) * t;
+const sfx = new MusicEngine();
+
+/* ==================== 全局状态 ==================== */
+const S = {
+  sessionId: null,
+  cameraOn: false,
+  voiceUsed: false,
+  mirrorGuess: null,     // 粗情绪（中文）
+  imagery: [],           // [{word, essence, color, weight}]
+  emotion: "平静",
+  intensity: 0,
+  composition: [],       // [{word, color, points, x, y, rot, scale}]
+  artworkName: "",
+};
+
+/* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
+const PALETTE7 = {
+  平静: { glass: "#9DB39C", crack: "#4A5F49", gold: "#D9C289", ambient: "#DCE6D8" },
+  喜悦: { glass: "#E8B96B", crack: "#B8823D", gold: "#F4C842", ambient: "#FCE4D6" },
+  悲伤: { glass: "#7A8FA8", crack: "#3E4A5F", gold: "#D4A574", ambient: "#C9D6E4" },
+  愤怒: { glass: "#C97455", crack: "#6B2E20", gold: "#E5A83A", ambient: "#F0D4C0" },
+  惊讶: { glass: "#B8A5D4", crack: "#4A3E6B", gold: "#E8CE8A", ambient: "#E4DCF0" },
+  恐惧: { glass: "#8B9BB4", crack: "#39415A", gold: "#CBB27E", ambient: "#D4DCE8" },
+  厌恶: { glass: "#A3AD85", crack: "#4F5638", gold: "#D6BE7F", ambient: "#DEE3D0" },
+};
+function applyEmotion(emotion) {
+  const p = PALETTE7[emotion] || PALETTE7["平静"];
+  const root = document.documentElement.style;
+  root.setProperty("--glass", p.glass);
+  root.setProperty("--crack", p.crack);
+  root.setProperty("--gold", p.gold);
+  root.setProperty("--ambient", p.ambient);
+}
+
+/* ==================== 基础设施 ==================== */
+const api = async (path, opts = {}) => {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  return res.json();
+};
+
+let currentScene = "sceneGate";
+function gotoScene(id) {
+  const from = $(currentScene);
+  from.classList.add("leaving");
+  setTimeout(() => {
+    from.classList.remove("active", "leaving");
+    $(id).classList.add("active");
+    currentScene = id;
+  }, 550);
+}
+
+/* 漂浮光点 */
+(() => {
+  const box = $("particles");
+  for (let i = 0; i < 10; i += 1) {
+    const dot = document.createElement("i");
+    const s = 3 + Math.random() * 4;
+    dot.style.cssText = `width:${s}px;height:${s}px;left:${Math.random() * 96}%;top:${Math.random() * 80}%;animation-delay:${-Math.random() * 9}s`;
+    box.appendChild(dot);
+  }
+})();
+
+/* 静音开关 */
+const syncMute = () => { $("muteBtn").textContent = sfx.muted ? "♪̸" : "♪"; $("muteBtn").style.opacity = sfx.muted ? .5 : 1; };
+$("muteBtn").onclick = () => { sfx.setMuted(!sfx.muted); syncMute(); };
+syncMute();
+
+/* ==================== 1 门口 ==================== */
+const GREETINGS = [
+  "你来了。今天，有什么压在心上吗？",
+  "不用急着说话，先进来坐坐也可以。",
+  "这里的玻璃，记得每一种心情的颜色。",
+  "外面的风大吗？炉子一直是热的。",
+  "今天想让我陪你待一会儿吗？",
+  "无论你带来什么，这里都放得下。",
+];
+setTimeout(() => {
+  $("gateLine").textContent = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+  $("gateBubble").classList.add("show");
+}, 1200);
+setTimeout(() => $("enterBtn").classList.add("show"), 2400);
+
+$("enterBtn").onclick = async () => {
+  $("enterBtn").disabled = true;
+  try {
+    const data = await api("/api/sessions", { method: "POST", body: { userId: "local_user", inputMode: "text" } });
+    S.sessionId = data.record.sessionId;
+  } catch (_) { /* 离线也允许走完（不落盘） */ }
+  // 推门：泛光 + 推近
+  $("flash").style.opacity = "0.95";
+  $("sceneGate").style.transition = "transform 1.1s ease";
+  $("sceneGate").style.transform = "scale(1.15)";
+  setTimeout(() => { gotoScene("sceneMirror"); $("flash").style.opacity = "0"; }, 750);
+};
+
+/* ==================== 2 镜像（简笔画渲染，复用 sketch-face 逻辑） ==================== */
+const video = document.createElement("video");
+video.playsInline = true; video.muted = true;
+
+const eyeY = 81, LX = 79, RX = 121, browBaseY = 62, mouthY = 118;
+const NEUTRAL = { eyeL: 1, eyeR: 1, browY: 0, browInner: 0, smile: 0.12, mouthOpen: 0, blush: 0, tear: 0, gx: 0, gy: 0, roll: 0, tx: 0, ty: 0 };
+let st = { ...NEUTRAL };
+let target = { ...NEUTRAL };
+const KEYS = Object.keys(NEUTRAL);
+
+const emotionCounts = new Map();
+let engine = null;
+
+function onFrame(d) {
+  if (!d.present) return;
+  const s = d.signals, h = d.head;
+  target.eyeL = clamp(1 - s.blinkL * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  target.eyeR = clamp(1 - s.blinkR * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  target.browY = clamp(s.browUp * 10 - s.browDown * 3, -6, 11);
+  target.browInner = clamp(s.browDown * 11 - s.browInnerUp * 10, -8, 10);
+  target.smile = clamp(s.smile * 1.25 - s.frown * 1.7 - s.mouthLowerDown * 0.8, -1, 1);
+  target.mouthOpen = clamp(s.jawOpen, 0, 1);
+  target.blush = clamp(s.smile * 1.3 + s.cheek - 0.12, 0, 1);
+  target.tear = d.emotion === "sad" ? clamp(s.frown + s.browInnerUp - 0.15, 0, 1) : 0;
+  target.gx = clamp(-h.gazeX * 3 - h.yaw * 2.4, -4, 4);
+  target.gy = clamp(h.gazeY * 2.4 + h.pitch * 1.6, -3, 4);
+  target.roll = -(h.roll * 180) / Math.PI;
+  target.tx = clamp(-h.yaw * 10, -8, 8);
+  target.ty = clamp(h.pitch * 9, -6, 8);
+  emotionCounts.set(d.emotion, (emotionCounts.get(d.emotion) || 0) + 1);
+}
+
+const browPath = (cx, side, browY, browInner) => {
+  const inner = side === "L" ? cx + 11 : cx - 11;
+  const outer = side === "L" ? cx - 12 : cx + 12;
+  const y = browBaseY - browY;
+  const yi = y + browInner, yo = y - browInner * 0.15;
+  const mx = (inner + outer) / 2, my = Math.min(yi, yo) - 3;
+  return `M${outer} ${yo.toFixed(1)} Q ${mx} ${my.toFixed(1)} ${inner} ${yi.toFixed(1)}`;
+};
+function drawFace() {
+  KEYS.forEach((k) => { st[k] = lerp(st[k], target[k], 0.35); });
+  $("eyeL").setAttribute("cx", (LX + st.gx).toFixed(1));
+  $("eyeL").setAttribute("cy", (eyeY + st.gy).toFixed(1));
+  $("eyeL").setAttribute("ry", clamp(1.6 + st.eyeL * 5, 1.1, 11).toFixed(1));
+  $("eyeR").setAttribute("cx", (RX + st.gx).toFixed(1));
+  $("eyeR").setAttribute("cy", (eyeY + st.gy).toFixed(1));
+  $("eyeR").setAttribute("ry", clamp(1.6 + st.eyeL * 5, 1.1, 11).toFixed(1));
+  $("browL").setAttribute("d", browPath(LX, "L", st.browY, st.browInner));
+  $("browR").setAttribute("d", browPath(RX, "R", st.browY, st.browInner));
+  const half = 19, lx = 100 - half, rx2 = 100 + half;
+  const cornerY = (mouthY - st.smile * 7.5).toFixed(1);
+  const upperY = (mouthY - st.smile * 3).toFixed(1);
+  const lowerY = (mouthY + st.smile * 3 + st.mouthOpen * 22).toFixed(1);
+  $("mouth").setAttribute("d", `M${lx} ${cornerY} Q100 ${upperY} ${rx2} ${cornerY} Q100 ${lowerY} ${lx} ${cornerY} Z`);
+  $("blush").setAttribute("opacity", st.blush.toFixed(2));
+  $("tear").setAttribute("opacity", st.tear.toFixed(2));
+  $("tear").setAttribute("d", `M${RX + 2} ${eyeY + 7} q -4 8 0 14 q 5 -6 0 -14 z`);
+  $("face").setAttribute("transform", `rotate(${st.roll.toFixed(1)} 100 88) translate(${st.tx.toFixed(1)} ${st.ty.toFixed(1)})`);
+  requestAnimationFrame(drawFace);
+}
+drawFace();
+
+/* 空闲小动画（没开摄像头时也活着：眨眼） */
+setInterval(() => {
+  if (S.cameraOn) return;
+  target.eyeL = target.eyeR = 0.08;
+  setTimeout(() => { target.eyeL = target.eyeR = 1; }, 140);
+}, 3600);
+
+const GUESS_TEXT = {
+  sad: "我好像在你脸上看到一点……沉沉的东西，是这样吗？",
+  happy: "你的嘴角有一点光。今天有好事发生吗？",
+  angry: "眉头绷得有点紧。有什么在烧吗？",
+  surprised: "你看起来遇到了没想到的事？",
+  neutral: "此刻你看起来很安静。心里也是吗？",
+};
+
+$("camBtn").onclick = async () => {
+  $("camBtn").disabled = true;
+  $("camBtn").textContent = "玻璃正在亮起…";
+  try {
+    engine = new EmotionEngine({ video, onStatus: () => {}, onFrame, smoothing: 0.4 });
+    await engine.init();
+    S.cameraOn = true;
+    $("permCard").style.display = "none";
+    // 采样 6 秒后给试探性猜测
+    emotionCounts.clear();
+    setTimeout(() => {
+      let best = "neutral", n = 0, total = 0;
+      for (const [k, v] of emotionCounts) { total += v; if (v > n) { n = v; best = k; } }
+      const confident = total > 20 && n / total > 0.4;
+      const key = confident ? best : "neutral";
+      S.mirrorGuess = EMOTION_META[key]?.label || "平静";
+      $("guessBubble").textContent = (confident ? "" : "我不太确定……") + GUESS_TEXT[key];
+      $("guessWrap").classList.add("show");
+      if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { mirrorGuess: S.mirrorGuess, inputMode: "video+text" } }).catch(() => {});
+    }, 6000);
+  } catch (err) {
+    $("permCard").querySelector("p").innerHTML = "玻璃有点模糊，没关系——<br/>你可以直接告诉我。";
+    $("camBtn").style.display = "none";
+    $("skipCamBtn").textContent = "直接进入 →";
+    $("camBtn").disabled = false;
+  }
+};
+$("skipCamBtn").onclick = () => enterTalk();
+$("confirmBtn").onclick = () => enterTalk();
+$("denyBtn").onclick = () => enterTalk();
+
+/* ==================== 3 倾诉 ==================== */
+function enterTalk() {
+  // 镜子缩小挪到左上角，继续陪伴
+  $("mirrorDock").appendChild($("mirrorFrame"));
+  $("mirrorFrame").querySelector(".live").textContent = S.cameraOn ? "● 我在听" : "● 镜像";
+  $("mirrorNote").textContent = S.cameraOn ? "画面不上传" : "";
+  gotoScene("sceneTalk");
+  typeLine($("spiritLine"), "说说吧，你在想什么。想到哪说到哪，我都在听。");
+}
+function typeLine(el, text, done) {
+  el.textContent = "";
+  let i = 0;
+  const timer = setInterval(() => {
+    el.textContent = text.slice(0, i += 1);
+    if (i >= text.length) { clearInterval(timer); if (done) done(); }
+  }, 55);
+}
+
+/* ---- 语音输入（走本地代理，key 不进前端） ---- */
+const voice = new VoiceInput({
+  provider: "openai",
+  apiKey: "proxy",              // 真 key 在 server.js
+  baseUrl: "/api/proxy",
+  model: "whisper-1",
+  language: "zh",
+  onStateChange: (s2) => {
+    $("micHint").textContent = ({
+      recording: "我在听…（松开变成文字）",
+      transcribing: "正在把你的话变成文字…",
+      error: "转写没有成功（直接打字也可以）",
+    })[s2] || "按住说话 · 松开变成文字";
+    $("micBtn").classList.toggle("recording", s2 === "recording");
+  },
+  onVolume: (v) => $("micBtn").style.setProperty("--vol", v.toFixed(2)),
+});
+
+let recordStart = 0;
+$("micBtn").onpointerdown = (e) => {
+  $("micBtn").setPointerCapture(e.pointerId);
+  recordStart = Date.now();
+  voice.start().catch(() => { $("micHint").textContent = "麦克风不可用（直接打字也可以）"; });
+};
+$("micBtn").onpointerup = async () => {
+  try {
+    const { text } = await voice.stop();
+    if (text) {
+      S.voiceUsed = true;
+      $("finalCap").textContent = `"${text}"`;
+      await submitSpeech(text, Date.now() - recordStart);
+    } else if (voice.state !== "recording") {
+      $("micHint").textContent = "好像没有听清，再试一次？";
+    }
+  } catch (_) { /* onStateChange 已给提示 */ }
+};
+$("micBtn").onpointercancel = () => voice.cancel();
+
+/* ---- 打字输入 ---- */
+let typedAll = "";
+$("typeToggle").onclick = () => { $("typeWrap").classList.add("show"); $("typeInput").focus(); };
+async function sendTyped() {
+  const text = $("typeInput").value.trim();
+  if (!text) return;
+  $("typeInput").value = "";
+  $("finalCap").textContent = `"${text}"`;
+  typedAll = typedAll ? `${typedAll} ${text}` : text;
+  if (S.sessionId) await api(`/api/sessions/${S.sessionId}/text`, { method: "PATCH", body: { textInput: typedAll } }).catch(() => {});
+  await refreshImagery();
+}
+$("typeSend").onclick = sendTyped;
+$("typeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendTyped(); });
+
+async function submitSpeech(text, durationMs) {
+  if (S.sessionId) {
+    await api(`/api/sessions/${S.sessionId}/transcript`, {
+      method: "PATCH",
+      body: { text, isFinal: true, source: "whisper-proxy", durationMs },
+    }).catch(() => {});
+  }
+  await refreshImagery();
+}
+
+/* ---- 意象碎片 ---- */
+const SHARD_SHAPES = [
+  "0,-34 44,-20 36,18 -8,30 -38,6",
+  "-40,-16 26,-32 42,10 -2,28",
+  "-30,-30 30,-26 38,16 6,34 -34,12",
+  "-44,-6 -6,-32 40,-14 30,22 -18,28",
+  "-24,-34 28,-20 40,14 -4,32 -40,-2",
+  "-36,-22 18,-34 44,4 12,30 -30,18",
+  "-42,8 -20,-30 34,-24 38,20 -6,32",
+];
+let shardNodes = new Map(); // word -> {g, cx, cy, phase}
+
+async function refreshImagery() {
+  if (!S.sessionId) { renderShards(fallbackShards()); return; }
+  $("micHint").textContent = "玻璃里有什么正在成形…";
+  const out = await api(`/api/sessions/${S.sessionId}/imagery`, { method: "POST" }).catch(() => null);
+  if (out && out.imagery && out.imagery.length) {
+    S.imagery = out.imagery;
+    if (out.dominantEmotion) { S.emotion = out.dominantEmotion; S.intensity = out.overallIntensity || 0; applyEmotion(S.emotion); }
+    renderShards(S.imagery);
+  } else if (!shardNodes.size) {
+    renderShards(fallbackShards());
+  }
+  $("micHint").textContent = "按住说话 · 松开变成文字";
+}
+function fallbackShards() {
+  S.imagery = [
+    { word: "说不清的感觉", essence: "", color: "#8FA8C0", weight: 3 },
+    { word: "今天", essence: "", color: "#9FBBD0", weight: 3 },
+    { word: "心里的一角", essence: "", color: "#B0A8CC", weight: 3 },
+  ];
+  return S.imagery;
+}
+
+function renderShards(list) {
+  const svg = $("shardSky");
+  const slots = [ [110, 90], [330, 120], [200, 210], [90, 240], [370, 250], [250, 60], [160, 300] ];
+  list.forEach((item, i) => {
+    if (shardNodes.has(item.word)) return;
+    const [cx, cy] = slots[shardNodes.size % slots.length];
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const scale = 0.8 + (item.weight || 3) * 0.12;
+    const points = SHARD_SHAPES[shardNodes.size % SHARD_SHAPES.length];
+    g.innerHTML = `
+      <polygon class="shard-poly" points="${points}" fill="${item.color}" fill-opacity="0.82"/>
+      <text class="shard-label" text-anchor="middle" y="5">${item.word}</text>`;
+    g.setAttribute("opacity", "0");
+    svg.appendChild(g);
+    shardNodes.set(item.word, { g, cx, cy, scale, phase: Math.random() * Math.PI * 2, rot: (Math.random() - 0.5) * 16, item, points });
+    sfx.chime();
+    setTimeout(() => g.setAttribute("opacity", "1"), 60 + i * 260);
+    g.style.transition = "opacity 1.4s ease";
+  });
+  if (shardNodes.size) $("toBenchBtn").classList.add("show");
+}
+(function floatLoop() {
+  const t = performance.now() / 1000;
+  for (const s2 of shardNodes.values()) {
+    const dy = Math.sin(t * 0.7 + s2.phase) * 7;
+    const dr = Math.sin(t * 0.4 + s2.phase) * 4;
+    s2.g.setAttribute("transform", `translate(${s2.cx} ${s2.cy + dy}) rotate(${(s2.rot + dr).toFixed(1)}) scale(${s2.scale})`);
+  }
+  requestAnimationFrame(floatLoop);
+})();
+
+$("toBenchBtn").onclick = () => {
+  // 关闭摄像头，明确告知
+  if (engine) { engine.stop(); engine = null; S.cameraOn = false; }
+  enterBench();
+};
+
+/* ==================== 4 工作台 ==================== */
+const benchPieces = []; // {id, word, color, points, x, y, rot, scale, placed, el, broken}
+function enterBench() {
+  gotoScene("sceneBench");
+  const layer = $("benchPieces");
+  layer.innerHTML = "";
+  benchPieces.length = 0;
+  const startSlots = [ [90, 170], [240, 150], [390, 170], [160, 100], [320, 95], [60, 90], [420, 110] ];
+  [...shardNodes.values()].forEach((s2, i) => {
+    const [x, y] = startSlots[i % startSlots.length];
+    addBenchPiece({ word: s2.item.word, color: s2.item.color, points: s2.points, x, y, rot: s2.rot, scale: s2.scale * 0.82, broken: false });
+  });
+}
+let pieceSeq = 0;
+function addBenchPiece(p) {
+  const layer = $("benchPieces");
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.style.cursor = "grab";
+  g.innerHTML = `
+    <polygon class="shard-poly" points="${p.points}" fill="${p.color}" fill-opacity="0.85"/>
+    ${p.word ? `<text class="shard-label" text-anchor="middle" y="5" font-size="12">${p.word}</text>` : ""}`;
+  layer.appendChild(g);
+  const piece = { id: pieceSeq += 1, ...p, placed: false, el: g };
+  benchPieces.push(piece);
+  positionPiece(piece);
+  attachPieceEvents(piece);
+  return piece;
+}
+function positionPiece(p) {
+  p.el.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.rot}) scale(${p.scale})`);
+}
+
+const CANVAS_RECT = { x: 34, y: 286, w: 412, h: 252 };
+function svgPoint(evt) {
+  const svg = $("benchSvg");
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+function attachPieceEvents(p) {
+  let moved = false, sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
+  p.el.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    p.el.setPointerCapture(e.pointerId);
+    const m = svgPoint(e);
+    sx = m.x; sy = m.y; ox = p.x; oy = p.y; moved = false; dragging = true;
+    p.el.parentNode.appendChild(p.el); // 提到最上层
+  });
+  p.el.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const m = svgPoint(e);
+    if (Math.hypot(m.x - sx, m.y - sy) > 6) moved = true;
+    p.x = ox + (m.x - sx); p.y = oy + (m.y - sy);
+    positionPiece(p);
+  });
+  p.el.addEventListener("pointerup", () => {
+    dragging = false;
+    if (!moved) { shatterPiece(p); return; }
+    const inCanvas = p.x > CANVAS_RECT.x + 20 && p.x < CANVAS_RECT.x + CANVAS_RECT.w - 20 &&
+                     p.y > CANVAS_RECT.y + 20 && p.y < CANVAS_RECT.y + CANVAS_RECT.h - 10;
+    if (inCanvas && !p.placed) {
+      p.placed = true;
+      const PART_WORDS = ["心口", "边缘", "最亮的地方", "中心", "转角"];
+      $("benchSay").innerHTML = `这块${p.word ? `「${p.word}」` : "碎片"}，现在成了它${PART_WORDS[Math.floor(Math.random() * PART_WORDS.length)]}的一角 ✦`;
+    } else if (!inCanvas && p.placed) {
+      p.placed = false;
+    }
+    updateFurnaceBtn();
+  });
+}
+function shatterPiece(p) {
+  if (p.broken || p.placed) return;
+  p.broken = true;
+  sfx.crack();
+  // 裂纹一闪
+  const flashLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  flashLine.setAttribute("d", "M0 0 l-14 12 M0 0 l16 10 M0 0 l-4 -16 M0 0 l4 18");
+  flashLine.setAttribute("stroke", "#fff"); flashLine.setAttribute("stroke-width", "1.6"); flashLine.setAttribute("fill", "none");
+  p.el.appendChild(flashLine);
+  $("benchSay").innerHTML = `看，${p.word ? `「${p.word}」` : "它"}碎开的样子。它一直是这么压着的。<br/><small>碎片不会消失——它们是接下来要用的材料</small>`;
+  setTimeout(() => {
+    p.el.remove();
+    benchPieces.splice(benchPieces.indexOf(p), 1);
+    // 三块小碎片散落
+    const FRAGS = ["0,-16 18,-6 8,14 -14,10", "-16,-8 12,-14 14,8 -8,12", "-12,-12 14,-8 6,14"];
+    FRAGS.forEach((points, i) => {
+      addBenchPiece({
+        word: i === 0 ? p.word : "",
+        color: p.color, points,
+        x: p.x + (i - 1) * 34 + (Math.random() - 0.5) * 12,
+        y: p.y + 18 + Math.random() * 16,
+        rot: (Math.random() - 0.5) * 40, scale: p.scale, broken: true,
+      });
+    });
+  }, 420);
+}
+function updateFurnaceBtn() {
+  const placed = benchPieces.filter((p) => p.placed).length;
+  $("toFurnaceBtn").disabled = placed < 1;
+}
+$("toFurnaceBtn").onclick = () => {
+  S.composition = benchPieces.filter((p) => p.placed).map((p) => ({
+    word: p.word, color: p.color, points: p.points,
+    x: Math.round(p.x - 240), y: Math.round(p.y - 400), rot: Math.round(p.rot), scale: +p.scale.toFixed(2),
+  }));
+  if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { composition: S.composition, inputMode: S.voiceUsed || S.cameraOn ? "video+text" : "text" } }).catch(() => {});
+  enterFurnace();
+};
+
+/* ==================== 5 熔炉 ==================== */
+function buildComposition(targetG, { gold = false } = {}) {
+  targetG.innerHTML = "";
+  S.composition.forEach((p) => {
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.rot}) scale(${p.scale})`);
+    g.innerHTML = `<polygon points="${p.points}" fill="${gold ? p.color : "#E8A468"}" fill-opacity="${gold ? 0.92 : 0.85}" stroke="${gold ? "#FFF" : "#FFE7C2"}" stroke-opacity=".7" stroke-width="1.4"/>`;
+    targetG.appendChild(g);
+  });
+  if (gold && S.composition.length > 1) {
+    // 金缮：沿放置顺序连金线
+    const d = S.composition.map((p, i) => `${i ? "Q" : "M"}${i ? `${(S.composition[i - 1].x + p.x) / 2 + 14} ${(S.composition[i - 1].y + p.y) / 2 - 10} ` : ""}${p.x} ${p.y}`).join(" ");
+    const seam = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    seam.setAttribute("d", d);
+    seam.setAttribute("fill", "none");
+    seam.setAttribute("stroke", "var(--gold)");
+    seam.setAttribute("stroke-width", "4");
+    seam.setAttribute("stroke-linecap", "round");
+    const len = 600;
+    seam.setAttribute("stroke-dasharray", String(len));
+    seam.setAttribute("stroke-dashoffset", String(len));
+    seam.style.transition = "stroke-dashoffset 2.4s ease";
+    targetG.appendChild(seam);
+    requestAnimationFrame(() => requestAnimationFrame(() => { seam.style.strokeDashoffset = "0"; }));
+  }
+}
+
+let heated = false;
+function enterFurnace() {
+  gotoScene("sceneFurnace");
+  buildComposition($("furnacePiece"));
+  sfx.furnace(13);
+  // 音乐：现在就开始后台生成（最长 90s，被熔炉+命名交互遮住）
+  if (S.sessionId) api(`/api/sessions/${S.sessionId}/music`, { method: "POST" }).catch(() => {});
+  // 火焰升起
+  const glowE = $("glowE"), flames = $("flames");
+  let t0 = performance.now();
+  (function fireLoop() {
+    if (currentScene !== "sceneFurnace") return;
+    const t = (performance.now() - t0) / 1000;
+    const boost = heatProgress * 0.5;
+    glowE.setAttribute("opacity", (0.45 + boost + Math.sin(t * 2.2) * 0.07).toFixed(2));
+    flames.setAttribute("opacity", (0.55 + boost * 0.7 + Math.sin(t * 3.1) * 0.1).toFixed(2));
+    flames.setAttribute("transform", `translate(0 ${(Math.sin(t * 2.6) * 2).toFixed(1)})`);
+    requestAnimationFrame(fireLoop);
+  })();
+  // 按住加温：3 秒充满；8 秒不按也自动完成
+  heated = false; heatProgress = 0;
+  const autoTimer = setTimeout(() => { if (!heated) finishHeat(); }, 8000);
+  let holdRaf = null, holdStart = 0, baseProgress = 0;
+  const ring = $("heatRing");
+  ring.onpointerdown = (e) => {
+    ring.setPointerCapture(e.pointerId);
+    holdStart = performance.now(); baseProgress = heatProgress;
+    (function holdLoop() {
+      heatProgress = Math.min(1, baseProgress + (performance.now() - holdStart) / 3000);
+      $("heatArc").setAttribute("stroke-dashoffset", String(201 * (1 - heatProgress)));
+      if (heatProgress >= 1) { clearTimeout(autoTimer); finishHeat(); return; }
+      holdRaf = requestAnimationFrame(holdLoop);
+    })();
+  };
+  ring.onpointerup = ring.onpointercancel = () => cancelAnimationFrame(holdRaf);
+}
+let heatProgress = 0;
+function finishHeat() {
+  if (heated) return;
+  heated = true;
+  $("heatArc").setAttribute("stroke-dashoffset", "0");
+  $("heatHint").textContent = "在冷却了…";
+  // 金线浮现在熔炉里
+  buildComposition($("furnacePiece"), { gold: true });
+  $("furnaceQuote").classList.add("show");
+  setTimeout(() => enterName(), 4200);
+}
+
+/* ==================== 6 命名 ==================== */
+const VESSELS = ["灯", "翼", "星", "舟", "铃", "屿", "雾"];
+function localNames() {
+  const words = S.imagery.map((i) => i.word);
+  const pick = () => words[Math.floor(Math.random() * words.length)] || "此刻";
+  const v = () => VESSELS[Math.floor(Math.random() * VESSELS.length)];
+  return [...new Set([`${pick()}铸成的${v()}`, `${pick()}的${v()}`, `冷却后的${v()}`])].slice(0, 3);
+}
+async function enterName() {
+  gotoScene("sceneName");
+  buildComposition($("artworkPiece"), { gold: true });
+  let names = null;
+  if (S.sessionId) {
+    const out = await api(`/api/sessions/${S.sessionId}/artwork-name`, { method: "POST" }).catch(() => null);
+    if (out && out.ok) names = out.names;
+  }
+  if (!names || !names.length) names = localNames();
+  const box = $("nameChips");
+  box.innerHTML = "";
+  names.forEach((n) => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.textContent = n;
+    chip.onclick = () => {
+      box.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
+      chip.classList.add("selected");
+      $("customName").value = "";
+      S.artworkName = n;
+      $("nameConfirmBtn").disabled = false;
+    };
+    box.appendChild(chip);
+  });
+  $("customName").oninput = () => {
+    const v = $("customName").value.trim();
+    if (v) {
+      box.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
+      S.artworkName = v;
+      $("nameConfirmBtn").disabled = false;
+    }
+  };
+}
+$("nameConfirmBtn").onclick = async () => {
+  if (!S.artworkName) return;
+  $("nameConfirmBtn").disabled = true;
+  $("nameConfirmBtn").textContent = "…";
+  if (S.sessionId) await api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { artworkName: S.artworkName } }).catch(() => {});
+  let reply = null;
+  if (S.sessionId) {
+    const out = await api(`/api/sessions/${S.sessionId}/closing`, { method: "POST", body: { name: S.artworkName } }).catch(() => null);
+    if (out && out.ok) reply = out.reply;
+  }
+  if (!reply) {
+    const w = S.imagery[0] ? `「${S.imagery[0].word}」` : "它";
+    reply = `你把${w}从心里取了出来，亲手给了它新的形状。这件事本身就很了不起。`;
+  }
+  $("nameConfirmBtn").style.display = "none";
+  $("customName").style.display = "none";
+  $("nameChips").style.display = "none";
+  $("closingText").textContent = `「${reply}」`;
+  const now = new Date();
+  $("closingDate").textContent = `《${S.artworkName}》 · ${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 的心情`;
+  $("closingCard").classList.add("show");
+  $("musicRow").classList.add("show");
+  pollMusic();
+};
+
+/* ---- 音乐轮询与播放 ---- */
+let musicUrl = null;
+async function pollMusic() {
+  if (!S.sessionId) { $("musicHint").textContent = "这一炉的声音留到下次再烧"; return; }
+  for (let i = 0; i < 40; i += 1) {
+    const out = await api(`/api/sessions/${S.sessionId}/music`).catch(() => null);
+    if (out && out.status === "ready" && out.music) {
+      musicUrl = out.music.url;
+      $("musicTitle").textContent = `♪ ${out.music.title || S.artworkName}`;
+      $("musicHint").textContent = "为这份心情烧成的一段声音";
+      $("playBtn").classList.add("pulsing");
+      return;
+    }
+    if (out && out.status === "failed") break;
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  $("musicHint").textContent = "这一炉的声音没能成形，下次再来听";
+}
+$("playBtn").onclick = () => {
+  if (!musicUrl) return;
+  $("playBtn").classList.remove("pulsing");
+  $("playBtn").textContent = "…";
+  sfx.play(musicUrl, () => { $("playBtn").textContent = "♪"; });
+};
+
+$("restartBtn").onclick = () => window.location.reload();
+</script>
+</body>
+</html>
