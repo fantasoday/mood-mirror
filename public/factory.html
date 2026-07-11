@@ -102,7 +102,7 @@
   #mirrorDock #mirrorFrame { width: 118px; padding: 6px 6px 2px; border-radius: 14px; }
   #spiritSay { flex: 1; }
   #shardSky { width: 100%; flex: 1; min-height: 200px; }
-  #captions { width: 100%; text-align: center; font-size: 13.5px; color: #6E9AB2; line-height: 1.9; min-height: 54px; padding: 0 12px; }
+  #captions { width: 100%; text-align: center; font-size: 13.5px; color: #6E9AB2; line-height: 1.9; min-height: 54px; padding: 0 12px; white-space: pre-line; }
   #captions .interim { opacity: .55; }
   #talkControls { display: flex; flex-direction: column; align-items: center; gap: 9px; padding-bottom: 44px; width: 100%; }
   #micBtn {
@@ -277,13 +277,13 @@
     <svg id="shardSky" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="captions"><span id="finalCap"></span><span class="interim" id="interimCap"></span></div>
     <div id="talkControls">
-      <button id="micBtn" title="按住说话">
+      <button id="micBtn" title="结束倾诉">
         <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round">
           <rect x="9" y="3" width="6" height="11" rx="3" fill="#fff" stroke="none"/>
           <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><line x1="12" y1="18" x2="12" y2="21"/>
         </svg>
       </button>
-      <div class="hint" id="micHint">按住说话 · 松开变成文字</div>
+      <div class="hint" id="micHint">进入后会自动倾听 · 说完点麦克风结束</div>
       <button class="link" id="typeToggle">直接打字也可以</button>
       <div id="typeWrap">
         <input id="typeInput" placeholder="把想说的写在这里，回车放进空气里"/>
@@ -611,6 +611,7 @@ function enterTalk() {
   $("mirrorNote").textContent = S.cameraOn ? "画面不上传" : "";
   gotoScene("sceneTalk");
   typeLine($("spiritLine"), "说说吧，你在想什么。想到哪说到哪，我都在听。");
+  startContinuousListening();
 }
 function typeLine(el, text, done) {
   el.textContent = "";
@@ -621,43 +622,311 @@ function typeLine(el, text, done) {
   }, 55);
 }
 
-/* ---- 语音输入（走本地代理，key 不进前端） ---- */
-const voice = new VoiceInput({
-  provider: "openai",
-  apiKey: "proxy",              // 真 key 在 server.js
-  baseUrl: "/api/proxy",
-  model: "whisper-1",
-  language: "zh",
-  onStateChange: (s2) => {
-    $("micHint").textContent = ({
-      recording: "我在听…（松开变成文字）",
-      transcribing: "正在把你的话变成文字…",
-      error: "转写没有成功（直接打字也可以）",
-    })[s2] || "按住说话 · 松开变成文字";
-    $("micBtn").classList.toggle("recording", s2 === "recording");
-  },
-  onVolume: (v) => $("micBtn").style.setProperty("--vol", v.toFixed(2)),
-});
+/* ---- 持续语音输入：进入本幕自动识别，点击麦克风结束倾诉 ---- */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const liveSpeech = {
+  recognition: null,
+  listening: false,
+  manualStop: false,
+  segments: [],
+  interimText: "",
+  segmentStartedAt: 0,
+  runId: 0,
+  processed: new Set(),
+  saveQueue: Promise.resolve(),
+  restartTimer: null,
+  finishing: false,
+  audioStream: null,
+  recorder: null,
+  audioChunks: [],
+  recordingStartedAt: 0,
+};
 
-let recordStart = 0;
-$("micBtn").onpointerdown = (e) => {
-  $("micBtn").setPointerCapture(e.pointerId);
-  recordStart = Date.now();
-  voice.start().catch(() => { $("micHint").textContent = "麦克风不可用（直接打字也可以）"; });
-};
-$("micBtn").onpointerup = async () => {
-  try {
-    const { text } = await voice.stop();
-    if (text) {
-      S.voiceUsed = true;
-      $("finalCap").textContent = `"${text}"`;
-      await submitSpeech(text, Date.now() - recordStart);
-    } else if (voice.state !== "recording") {
-      $("micHint").textContent = "好像没有听清，再试一次？";
+function renderLiveSpeech() {
+  const finalText = liveSpeech.segments.join("\n");
+  $("finalCap").textContent = finalText ? `“${finalText}` : "";
+  $("interimCap").textContent = liveSpeech.interimText
+    ? `${finalText ? "\n" : "“"}${liveSpeech.interimText}`
+    : (finalText ? "”" : "");
+}
+
+function normalizeSpeechText(text) {
+  return String(text || "").replace(/\s+/g, " ").trim();
+}
+
+function punctuateSpeechText(text) {
+  const clean = normalizeSpeechText(text);
+  if (!clean) return "";
+  return /[。！？!?；;，,、]$/.test(clean) ? clean : `${clean}。`;
+}
+
+function fullLiveTranscript({ includeInterim = false } = {}) {
+  const parts = [...liveSpeech.segments];
+  if (includeInterim && liveSpeech.interimText.trim()) {
+    parts.push(punctuateSpeechText(liveSpeech.interimText));
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
+function splitTranscriptLines(text) {
+  const clean = normalizeSpeechText(text);
+  if (!clean) return [];
+  const parts = clean
+    .replace(/([。！？!?；;])\s*/g, "$1\n")
+    .split(/\n+/)
+    .map((part) => punctuateSpeechText(part))
+    .filter(Boolean);
+  return parts.length ? parts : [punctuateSpeechText(clean)];
+}
+
+function setLiveTranscript(text) {
+  const lines = splitTranscriptLines(text);
+  if (!lines.length) return;
+  liveSpeech.segments = lines;
+  liveSpeech.interimText = "";
+  renderLiveSpeech();
+}
+
+function appendLiveFinal(text) {
+  const clean = punctuateSpeechText(text);
+  if (!clean) return;
+  const last = liveSpeech.segments[liveSpeech.segments.length - 1] || "";
+  if (last.replace(/[。！？!?；;，,、]$/g, "") === clean.replace(/[。！？!?；;，,、]$/g, "")) return;
+  liveSpeech.segments.push(clean);
+  liveSpeech.interimText = "";
+  renderLiveSpeech();
+}
+
+function queueTranscriptUpdate(text, { isFinal = false, durationMs = null, replace = false, source = "webspeech-live" } = {}) {
+  const clean = normalizeSpeechText(text);
+  if (!S.sessionId || !clean) return;
+  liveSpeech.saveQueue = liveSpeech.saveQueue
+    .then(() => api(`/api/sessions/${S.sessionId}/transcript`, {
+      method: "PATCH",
+      body: { text: clean, isFinal, replace, source, durationMs },
+    }))
+    .catch(() => {});
+}
+
+function handleLiveSpeechResult(event) {
+  let interim = "";
+  const finals = [];
+  for (let i = event.resultIndex; i < event.results.length; i += 1) {
+    const result = event.results[i];
+    const text = (result[0]?.transcript || "").trim();
+    if (!text) continue;
+    if (result.isFinal) {
+      const key = `${liveSpeech.runId}:${i}:${text}`;
+      if (!liveSpeech.processed.has(key)) {
+        liveSpeech.processed.add(key);
+        finals.push(text);
+      }
+    } else {
+      interim += text;
     }
-  } catch (_) { /* onStateChange 已给提示 */ }
-};
-$("micBtn").onpointercancel = () => voice.cancel();
+  }
+
+  if (finals.length) {
+    const finalText = finals.join("，");
+    liveSpeech.segmentStartedAt = performance.now();
+    appendLiveFinal(finalText);
+    S.voiceUsed = true;
+  }
+  liveSpeech.interimText = normalizeSpeechText(interim);
+  renderLiveSpeech();
+}
+
+function createLiveRecognition(runId) {
+  const rec = new SpeechRecognition();
+  rec.lang = "zh-CN";
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  rec.onstart = () => {
+    liveSpeech.listening = true;
+    liveSpeech.segmentStartedAt = performance.now();
+    $("micBtn").classList.add("recording");
+    $("micHint").textContent = "我在听…说完后点麦克风结束倾诉";
+  };
+  rec.onresult = (event) => {
+    if (runId !== liveSpeech.runId) return;
+    handleLiveSpeechResult(event);
+  };
+  rec.onerror = (event) => {
+    if (runId !== liveSpeech.runId || liveSpeech.manualStop) return;
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      liveSpeech.manualStop = true;
+      liveSpeech.listening = false;
+      $("micBtn").classList.remove("recording");
+      $("micHint").textContent = "麦克风或语音识别权限不可用（直接打字也可以）";
+      return;
+    }
+    if (event.error !== "no-speech") $("micHint").textContent = `识别短暂中断：${event.error}，正在续听`;
+  };
+  rec.onend = () => {
+    if (runId !== liveSpeech.runId) return;
+    liveSpeech.listening = false;
+    $("micBtn").classList.remove("recording");
+    if (liveSpeech.manualStop) return;
+    window.clearTimeout(liveSpeech.restartTimer);
+    liveSpeech.restartTimer = window.setTimeout(startRecognitionCycle, 320);
+  };
+  return rec;
+}
+
+function startRecognitionCycle() {
+  if (!SpeechRecognition || liveSpeech.manualStop) return;
+  liveSpeech.runId += 1;
+  liveSpeech.processed = new Set();
+  liveSpeech.segmentStartedAt = performance.now();
+  liveSpeech.recognition = createLiveRecognition(liveSpeech.runId);
+  try {
+    liveSpeech.recognition.start();
+  } catch (_) {
+    $("micHint").textContent = "语音识别启动失败（直接打字也可以）";
+  }
+}
+
+function startContinuousListening() {
+  if (liveSpeech.listening || liveSpeech.recognition) return;
+  if (!SpeechRecognition) {
+    $("micHint").textContent = "当前浏览器不支持实时识别（直接打字也可以）";
+    return;
+  }
+  liveSpeech.manualStop = false;
+  liveSpeech.finishing = false;
+  $("micBtn").disabled = false;
+  startAudioCapture().catch(() => {});
+  startRecognitionCycle();
+}
+
+async function startAudioCapture() {
+  if (liveSpeech.recorder || liveSpeech.audioStream) return;
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+  });
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : (MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "");
+  liveSpeech.audioStream = stream;
+  liveSpeech.audioChunks = [];
+  liveSpeech.recordingStartedAt = performance.now();
+  liveSpeech.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  liveSpeech.recorder.ondataavailable = (event) => {
+    if (event.data && event.data.size) liveSpeech.audioChunks.push(event.data);
+  };
+  liveSpeech.recorder.start(500);
+}
+
+function stopAudioTracks() {
+  if (liveSpeech.audioStream) {
+    liveSpeech.audioStream.getTracks().forEach((track) => track.stop());
+    liveSpeech.audioStream = null;
+  }
+}
+
+function stopAudioCapture() {
+  return new Promise((resolve) => {
+    const recorder = liveSpeech.recorder;
+    if (!recorder) {
+      stopAudioTracks();
+      resolve(null);
+      return;
+    }
+
+    const finish = () => {
+      const type = recorder.mimeType || "audio/webm";
+      const blob = liveSpeech.audioChunks.length
+        ? new Blob(liveSpeech.audioChunks, { type })
+        : null;
+      liveSpeech.recorder = null;
+      liveSpeech.audioChunks = [];
+      stopAudioTracks();
+      resolve(blob && blob.size > 1000 ? blob : null);
+    };
+
+    recorder.onstop = finish;
+    try {
+      if (recorder.state !== "inactive") recorder.stop();
+      else finish();
+    } catch (_) {
+      finish();
+    }
+  });
+}
+
+async function transcribeAudioBlob(blob) {
+  if (!blob) return "";
+  const form = new FormData();
+  const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+  form.append("file", blob, `speech.${ext}`);
+  form.append("model", "whisper-1");
+  form.append("language", "zh");
+
+  const res = await fetch("/api/proxy/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: "Bearer proxy" },
+    body: form,
+  });
+  if (!res.ok) return "";
+  const data = await res.json().catch(() => null);
+  return normalizeSpeechText(data?.text || "");
+}
+
+async function finishListening() {
+  if (liveSpeech.finishing) return;
+  liveSpeech.finishing = true;
+  liveSpeech.manualStop = true;
+  window.clearTimeout(liveSpeech.restartTimer);
+
+  if (liveSpeech.interimText.trim()) {
+    const finalText = liveSpeech.interimText.trim();
+    appendLiveFinal(finalText);
+    S.voiceUsed = true;
+  }
+  if (liveSpeech.recognition) {
+    try { liveSpeech.recognition.abort(); } catch (_) {}
+    liveSpeech.recognition = null;
+  }
+  $("micBtn").classList.remove("recording");
+
+  const fallbackTranscript = fullLiveTranscript();
+  const audioBlob = await stopAudioCapture();
+  let finalTranscript = fallbackTranscript;
+  let transcriptSource = "webspeech-live";
+
+  $("micHint").textContent = "正在整理整段倾诉…";
+  const cloudTranscript = await transcribeAudioBlob(audioBlob).catch(() => "");
+  if (cloudTranscript && cloudTranscript.length >= Math.max(4, fallbackTranscript.replace(/\s+/g, "").length * 0.6)) {
+    finalTranscript = splitTranscriptLines(cloudTranscript).join("\n");
+    transcriptSource = "cloud-final";
+    setLiveTranscript(finalTranscript);
+  }
+
+  const hasContent = Boolean(finalTranscript.trim() || typedAll.trim());
+  if (!hasContent) {
+    $("micHint").textContent = "我还没听见内容；你可以继续说，或直接打字。";
+    liveSpeech.manualStop = false;
+    liveSpeech.finishing = false;
+    startAudioCapture().catch(() => {});
+    startRecognitionCycle();
+    return;
+  }
+
+  $("micBtn").disabled = true;
+  $("micHint").textContent = "我听见了，正在把它变成玻璃碎片…";
+  queueTranscriptUpdate(finalTranscript, {
+    isFinal: true,
+    replace: true,
+    source: transcriptSource,
+    durationMs: Math.round(performance.now() - liveSpeech.segmentStartedAt),
+  });
+  await liveSpeech.saveQueue;
+  await refreshImagery();
+}
+
+$("micBtn").onclick = finishListening;
 
 /* ---- 打字输入 ---- */
 let typedAll = "";
@@ -673,16 +942,6 @@ async function sendTyped() {
 }
 $("typeSend").onclick = sendTyped;
 $("typeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendTyped(); });
-
-async function submitSpeech(text, durationMs) {
-  if (S.sessionId) {
-    await api(`/api/sessions/${S.sessionId}/transcript`, {
-      method: "PATCH",
-      body: { text, isFinal: true, source: "whisper-proxy", durationMs },
-    }).catch(() => {});
-  }
-  await refreshImagery();
-}
 
 /* ---- 意象碎片 ---- */
 const SHARD_SHAPES = [
@@ -707,7 +966,7 @@ async function refreshImagery() {
   } else if (!shardNodes.size) {
     renderShards(fallbackShards());
   }
-  $("micHint").textContent = "按住说话 · 松开变成文字";
+  $("micHint").textContent = "倾诉已收好；也可以继续打字补充。";
 }
 function fallbackShards() {
   S.imagery = [
@@ -752,6 +1011,9 @@ function renderShards(list) {
 $("toBenchBtn").onclick = () => {
   // 关闭摄像头，明确告知
   if (engine) { engine.stop(); engine = null; S.cameraOn = false; }
+  if (liveSpeech.recognition) { try { liveSpeech.recognition.abort(); } catch (_) {} liveSpeech.recognition = null; }
+  if (liveSpeech.recorder) { try { liveSpeech.recorder.stop(); } catch (_) {} liveSpeech.recorder = null; }
+  stopAudioTracks();
   enterBench();
 };
 

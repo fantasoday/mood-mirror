@@ -46,6 +46,9 @@ class VoiceInput {
     this._maxTimer = null;
     this._webspeech = null;
     this._webspeechResult = '';
+    this._fallbackSpeech = null;
+    this._fallbackSpeechResult = '';
+    this._fallbackSpeechInterim = '';
   }
 
   _setState(s) { this.state = s; this.onStateChange(s); }
@@ -96,6 +99,7 @@ class VoiceInput {
     this._recorder = new MediaRecorder(this._stream, mime ? { mimeType: mime } : undefined);
     this._recorder.ondataavailable = (e) => { if (e.data.size) this._chunks.push(e.data); };
     this._recorder.start(250);
+    this._startFallbackSpeech();
     this._setState('recording');
 
     // 超长保护
@@ -122,13 +126,20 @@ class VoiceInput {
     if (blob.size < 1000) { this._setState('idle'); return { text: '', mood: null }; }
 
     this._setState('transcribing');
+    const fallbackPromise = this._stopFallbackSpeech();
     try {
       const result = this._activeProvider === 'dashscope'
         ? await this._transcribeDashScope(blob)
         : await this._transcribeOpenAI(blob);
+      await fallbackPromise;
       this._setState('idle');
       return result;
     } catch (err) {
+      const fallback = await fallbackPromise;
+      if (fallback.text) {
+        this._setState('idle');
+        return fallback;
+      }
       this._setState('error');
       throw err;
     } finally {
@@ -141,6 +152,7 @@ class VoiceInput {
     clearTimeout(this._maxTimer);
     clearInterval(this._volTimer);
     if (this._webspeech) { try { this._webspeech.abort(); } catch (_) {} this._webspeech = null; }
+    if (this._fallbackSpeech) { try { this._fallbackSpeech.abort(); } catch (_) {} this._fallbackSpeech = null; }
     if (this._recorder && this._recorder.state !== 'inactive') {
       this._recorder.onstop = null;
       try { this._recorder.stop(); } catch (_) {}
@@ -153,6 +165,54 @@ class VoiceInput {
   _teardownMedia() {
     if (this._stream) { this._stream.getTracks().forEach(t => t.stop()); this._stream = null; }
     if (this._audioCtx) { this._audioCtx.close().catch(() => {}); this._audioCtx = null; }
+  }
+
+  _startFallbackSpeech() {
+    if (!VoiceInput.webSpeechSupported()) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = this.language === 'zh' ? 'zh-CN' : this.language;
+    rec.continuous = true;
+    rec.interimResults = true;
+    this._fallbackSpeechResult = '';
+    this._fallbackSpeechInterim = '';
+    rec.onresult = (e) => {
+      let finals = '', interim = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finals += t; else interim += t;
+      }
+      this._fallbackSpeechResult = finals;
+      this._fallbackSpeechInterim = interim;
+      this.onPartial(finals + interim);
+    };
+    rec.onerror = () => {};
+    try {
+      rec.start();
+      this._fallbackSpeech = rec;
+    } catch (_) {
+      this._fallbackSpeech = null;
+    }
+  }
+
+  _stopFallbackSpeech() {
+    return new Promise((resolve) => {
+      const rec = this._fallbackSpeech;
+      if (!rec) { resolve({ text: '', mood: null, source: 'none' }); return; }
+
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        this._fallbackSpeech = null;
+        const text = (this._fallbackSpeechResult || this._fallbackSpeechInterim || '').trim();
+        resolve({ text, mood: null, source: text ? 'webspeech-fallback' : 'none' });
+      };
+
+      rec.onend = finish;
+      try { rec.stop(); } catch (_) { finish(); }
+      setTimeout(finish, 1200);
+    });
   }
 
   /* ---------- 后端 1：OpenAI 兼容 /audio/transcriptions ---------- */
