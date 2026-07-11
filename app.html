@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>金缮 · Kintsugi — 心灵重建之旅</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body { background: linear-gradient(135deg, #F3EEE2 0%, #E8DCC8 100%); color: #33302B; overflow-x: hidden; }
+
+    .container { width: 100%; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+
+    /* 场景切换 */
+    .scene { display: none; width: 100%; max-width: 500px; }
+    .scene.active { display: flex; flex-direction: column; align-items: center; animation: fadeIn 0.6s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* 通用样式 */
+    .panel { background: #FBF7EE; border-radius: 24px; padding: 32px 24px; box-shadow: 0 18px 50px rgba(0,0,0,0.1); text-align: center; }
+    .title { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+    .subtitle { font-size: 14px; opacity: 0.7; margin-bottom: 24px; line-height: 1.6; }
+    .btn { padding: 12px 32px; margin-top: 16px; font-size: 15px; border: none; border-radius: 999px; background: #6c5ce7; color: #fff; cursor: pointer; box-shadow: 0 6px 18px rgba(108,92,231,0.4); transition: all 0.3s; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(108,92,231,0.6); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn.secondary { background: rgba(108,92,231,0.2); color: #6c5ce7; }
+
+    /* 1. 迎接页 */
+    #welcome .emoji { font-size: 64px; margin-bottom: 16px; }
+
+    /* 2. 镜像页 */
+    .mirror-content { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .sketch-stage { width: 280px; height: 280px; background: #FFF; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+    .emotion-guess { font-size: 16px; font-style: italic; color: #6c5ce7; padding: 16px; background: rgba(108,92,231,0.05); border-radius: 12px; }
+
+    /* 3. 命名页 */
+    .emotion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+    .emotion-btn { padding: 12px 16px; border: 2px solid #ddd; border-radius: 12px; background: #fff; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .emotion-btn:hover { border-color: #6c5ce7; }
+    .emotion-btn.selected { background: #6c5ce7; color: #fff; border-color: #6c5ce7; }
+    .sub-emotions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+    .textarea { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; resize: vertical; min-height: 80px; font-family: inherit; }
+
+    /* 4. 取出页 */
+    .glass-block { width: 200px; height: 200px; margin: 20px auto; background: linear-gradient(135deg, rgba(108,92,231,0.3), rgba(200,150,255,0.3)); border-radius: 16px; border: 2px solid rgba(108,92,231,0.5); cursor: pointer; transition: all 0.3s; }
+    .glass-block:hover { transform: scale(1.05); }
+    .glass-block.breaking { animation: shatter 0.6s ease-out; }
+    @keyframes shatter { 0% { transform: scale(1) rotate(0deg); } 100% { transform: scale(0.95) rotate(2deg); opacity: 0.7; } }
+
+    /* 5. 熔炉重铸页 */
+    .canvas-stage { position: relative; width: 100%; height: 320px; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 16px; }
+    #furnaceCanvas { display: block; width: 100%; height: 100%; }
+    .furnace-controls { display: flex; gap: 8px; justify-content: center; }
+
+    /* 6. 收束页 */
+    .artwork-preview { width: 220px; height: 220px; margin: 16px auto; background: #fff; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+    .story-text { font-size: 14px; line-height: 1.8; padding: 16px; background: rgba(108,92,231,0.05); border-radius: 12px; margin-bottom: 16px; }
+
+    /* 安全网 */
+    .safety-net { font-size: 11px; opacity: 0.6; margin-top: 20px; }
+
+    /* 浮动导航 */
+    .nav-dots { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(108,92,231,0.3); cursor: pointer; transition: all 0.3s; }
+    .dot.active { background: #6c5ce7; transform: scale(1.3); }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- Scene 1: 迎接 -->
+    <div id="welcome" class="scene active" style="display: flex;">
+      <div class="panel">
+        <div class="emoji" id="welcomeEmoji">🌟</div>
+        <div class="title">金缮 · Kintsugi</div>
+        <div class="subtitle">把裂缝，变成你身上的光</div>
+        <p id="welcomeMsg" style="font-size: 16px; margin: 20px 0;">一句暖心话在这里</p>
+        <button class="btn" onclick="nextScene('mirror')">开始吧</button>
+        <div class="safety-net">
+          如果此刻你感到难以承受，请联系心理援助热线 📞<br>
+          这是一个情绪整合的仪式，不是心理治疗。
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2: 镜像 -->
+    <div id="mirror" class="scene" style="display: none;">
+      <div class="panel">
+        <div class="title">看见你</div>
+        <div class="subtitle">我像一面镜子，把你映回来</div>
+        <div class="mirror-content">
+          <div class="sketch-stage" id="mirrorStage">
+            <!-- sketch-face SVG 会渲染在这里 -->
+            <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: 100%;">
+              <circle cx="100" cy="106" r="72" fill="#FFFDF8" stroke="#33302B" stroke-width="5"/>
+              <g id="faceElements">
+                <path id="browL" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+                <path id="browR" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+                <ellipse id="eyeL" cx="72" cy="96" rx="7" ry="9" fill="#33302B"/>
+                <ellipse id="eyeR" cx="128" cy="96" rx="7" ry="9" fill="#33302B"/>
+                <path id="mouth" fill="#fff" stroke="#33302B" stroke-width="5" stroke-linejoin="round"/>
+              </g>
+            </svg>
+          </div>
+          <div class="emotion-guess" id="emotionGuess">我好像在你脸上看到一点…</div>
+        </div>
+        <button class="btn secondary" onclick="nextScene('naming')">不太对，我来说</button>
+        <button class="btn" onclick="nextScene('naming')">就是这样，继续</button>
+        <div class="safety-net">摄像头已关闭 🔒 • 画面不会上传</div>
+      </div>
+    </div>
+
+    <!-- Scene 3: 命名 -->
+    <div id="naming" class="scene" style="display: none;">
+      <div class="panel">
+        <div class="title">给它起个名字</div>
+        <div class="subtitle">把心里的东西讲清楚，就能看清楚</div>
+
+        <div style="text-align: left; margin-bottom: 20px;">
+          <p style="font-size: 13px; opacity: 0.7; margin-bottom: 8px;">这份情绪最像是…</p>
+          <div class="emotion-grid" id="mainEmotions"></div>
+
+          <p style="font-size: 13px; opacity: 0.7; margin-bottom: 8px; margin-top: 16px;" id="subLabel">更细一点呢？</p>
+          <div class="sub-emotions" id="subEmotions"></div>
+
+          <p style="font-size: 13px; opacity: 0.7; margin-bottom: 8px; margin-top: 16px;">这份情绪，是关于…</p>
+          <textarea id="emotionStory" class="textarea" placeholder="比如：总是被忽略 / 对自己失望 / 担心被看不起"></textarea>
+        </div>
+
+        <button class="btn" onclick="confirmNaming()">好了，变成玻璃</button>
+        <div class="safety-net">你的信息只存在你的设备里</div>
+      </div>
+    </div>
+
+    <!-- Scene 4: 取出 / 打碎 -->
+    <div id="extraction" class="scene" style="display: none;">
+      <div class="panel">
+        <div class="title">把它取出来</div>
+        <div class="subtitle" id="extractSubtitle">这份<span id="extractEmotion">情绪</span>一直压在心里。现在，把它轻轻取出来。</div>
+        <div class="glass-block" id="glassBlock"></div>
+        <p style="font-size: 14px; margin: 16px 0; opacity: 0.8;">点击玻璃，看它怎么碎裂</p>
+        <button class="btn" onclick="breakGlass()">打碎</button>
+        <button class="btn secondary" onclick="nextScene('furnace')" id="continueAfterBreak" style="display: none;">碎片已收集，进入熔炉</button>
+        <div class="safety-net">碎片不是垃圾，是接下来要用的材料</div>
+      </div>
+    </div>
+
+    <!-- Scene 5: 熔炉重铸 -->
+    <div id="furnace" class="scene" style="display: none;">
+      <div class="panel">
+        <div class="title">火中重生</div>
+        <div class="subtitle">裂缝不会被藏起来，它会被镀成金色</div>
+        <div class="canvas-stage">
+          <canvas id="furnaceCanvas"></canvas>
+        </div>
+        <div class="furnace-controls">
+          <button class="btn" onclick="startFurnace()">开始熔铸</button>
+        </div>
+        <button class="btn secondary" onclick="nextScene('closure')" id="continueAfterFurnace" style="display: none;">工艺品完成，看看我</button>
+        <div class="safety-net">这是一个象征性的仪式</div>
+      </div>
+    </div>
+
+    <!-- Scene 6: 收束 -->
+    <div id="closure" class="scene" style="display: none;">
+      <div class="panel">
+        <div class="title">你的工艺品</div>
+        <div class="subtitle">带着金色裂痕，变成了新的形状</div>
+        <div class="artwork-preview" id="artworkPreview"></div>
+        <div class="story-text" id="closureStory">
+          [一句具体的、针对你这一次情绪的回应]
+        </div>
+        <button class="btn" onclick="downloadArtwork()">保存工艺品</button>
+        <button class="btn secondary" onclick="restartJourney()">再走一遍</button>
+        <div class="safety-net">
+          如果还有些东西想继续讲，可以再来。<br>
+          或者，现在为自己做一件小事？💚
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 场景导航点 -->
+  <div class="nav-dots">
+    <div class="dot active" onclick="jumpScene(0)"></div>
+    <div class="dot" onclick="jumpScene(1)"></div>
+    <div class="dot" onclick="jumpScene(2)"></div>
+    <div class="dot" onclick="jumpScene(3)"></div>
+    <div class="dot" onclick="jumpScene(4)"></div>
+    <div class="dot" onclick="jumpScene(5)"></div>
+  </div>
+
+  <script>
+    // 简单的 clamp 函数
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+    // ===== 应用状态 (全局) =====
+    window.appState = {
+      currentScene: 0,
+      emotion: { main: null, sub: null, intensity: 0.5, story: "" },
+      glass: { color: "", particles: [] },
+      artwork: null,
+    };
+
+    window.scenes = ["welcome", "mirror", "naming", "extraction", "furnace", "closure"];
+    window.emotionData = {
+      happy: { label: "开心", subs: ["满足", "兴奋", "骄傲", "感恩"] },
+      sad: { label: "难过", subs: ["委屈", "失落", "孤独", "疲惫"] },
+      surprised: { label: "惊讶", subs: ["期待", "困惑", "兴趣", "警觉"] },
+      angry: { label: "生气", subs: ["不甘", "被冒犯", "无力", "烦躁"] },
+      neutral: { label: "平静", subs: ["思考", "放松", "观察", "等待"] },
+    };
+
+    // ===== 场景切换 =====
+    window.nextScene = (targetId) => {
+      const idx = window.scenes.indexOf(targetId);
+      switchScene(idx);
+    };
+
+    window.jumpScene = (idx) => {
+      switchScene(idx);
+    };
+
+    function switchScene(idx) {
+      document.querySelectorAll(".scene").forEach((s) => {
+        s.classList.remove("active");
+        s.style.display = "none";
+      });
+      document.querySelectorAll(".dot").forEach((d) => d.classList.remove("active"));
+
+      const target = document.getElementById(window.scenes[idx]);
+      if (!target) return;
+      target.classList.add("active");
+      target.style.display = "flex";
+      target.style.flexDirection = "column";
+      target.style.alignItems = "center";
+
+      document.querySelectorAll(".dot")[idx].classList.add("active");
+      window.appState.currentScene = idx;
+
+      // 场景特定逻辑
+      if (idx === 0) initWelcome();
+      if (idx === 2) initNaming();
+      if (idx === 5) initClosure();
+    }
+
+    // ===== Scene 1: 迎接 =====
+    function initWelcome() {
+      const messages = [
+        "今天，我在这里陪你",
+        "没有关系，慢慢来",
+        "你的感受都值得被看见",
+        "一个人的时候，也不必太孤单",
+        "裂缝让我们看到光",
+      ];
+      const msg = messages[Math.floor(Math.random() * messages.length)];
+      document.getElementById("welcomeMsg").textContent = msg;
+    }
+
+    // ===== Scene 3: 命名 =====
+    function initNaming() {
+      // 主情绪按钮
+      const mainContainer = document.getElementById("mainEmotions");
+      mainContainer.innerHTML = "";
+      for (const [key, { label }] of Object.entries(emotionData)) {
+        const btn = document.createElement("button");
+        btn.className = "emotion-btn";
+        btn.textContent = label;
+        btn.onclick = () => selectMainEmotion(key, btn);
+        mainContainer.appendChild(btn);
+      }
+    }
+
+    function selectMainEmotion(key, btn) {
+      document.querySelectorAll("#mainEmotions .emotion-btn").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      window.appState.emotion.main = key;
+
+      // 更新子情绪
+      const subContainer = document.getElementById("subEmotions");
+      subContainer.innerHTML = "";
+      for (const sub of window.emotionData[key].subs) {
+        const sbtn = document.createElement("button");
+        sbtn.className = "emotion-btn";
+        sbtn.textContent = sub;
+        sbtn.onclick = () => selectSubEmotion(sub, sbtn);
+        subContainer.appendChild(sbtn);
+      }
+    }
+
+    function selectSubEmotion(sub, btn) {
+      document.querySelectorAll("#subEmotions .emotion-btn").forEach((b) => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      window.appState.emotion.sub = sub;
+    }
+
+    window.confirmNaming = () => {
+      const story = document.getElementById("emotionStory").value;
+      window.appState.emotion.story = story;
+      // 根据选择的情绪，设置玻璃颜色
+      const colorMap = {
+        happy: "linear-gradient(135deg, rgba(255,226,159,0.6), rgba(255,169,159,0.6))",
+        sad: "linear-gradient(135deg, rgba(161,196,253,0.6), rgba(194,233,251,0.6))",
+        angry: "linear-gradient(135deg, rgba(251,194,196,0.6), rgba(246,166,166,0.6))",
+        surprised: "linear-gradient(135deg, rgba(160,241,234,0.6), rgba(199,249,227,0.6))",
+        neutral: "linear-gradient(135deg, rgba(224,195,252,0.6), rgba(211,228,205,0.6))",
+      };
+      window.appState.glass.color = colorMap[window.appState.emotion.main] || colorMap.neutral;
+      window.nextScene("extraction");
+    };
+
+    // ===== Scene 4: 取出 =====
+    window.breakGlass = () => {
+      const block = document.getElementById("glassBlock");
+      block.classList.add("breaking");
+      setTimeout(() => {
+        document.getElementById("continueAfterBreak").style.display = "block";
+      }, 600);
+    };
+
+    // ===== Scene 5: 熔炉 =====
+    window.startFurnace = () => {
+      const canvas = document.getElementById("furnaceCanvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+      canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      runFurnaceAnimation(ctx, canvas.offsetWidth, canvas.offsetHeight);
+    };
+
+    function runFurnaceAnimation(ctx, w, h) {
+      let time = 0;
+      const duration = 3000; // 3 秒动画
+      const startTime = Date.now();
+
+      function animate() {
+        time = Date.now() - startTime;
+        const t = Math.min(time / duration, 1); // 0 → 1
+
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, w, h);
+
+        // 火焰渐变
+        drawFlames(ctx, w, h, t);
+        // 玻璃碎片 → 熔合
+        drawMeltingGlass(ctx, w, h, t);
+        // 金线浮现
+        drawGoldSeams(ctx, w, h, t);
+
+        if (t < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          // 动画完成
+          document.getElementById("continueAfterFurnace").style.display = "block";
+          // 保存最终工艺品
+          window.appState.artwork = canvas.toDataURL();
+        }
+      }
+      animate();
+    }
+
+    function drawFlames(ctx, w, h, progress) {
+      // 简单的火焰效果：从下到上的渐变 + 粒子
+      const flameLayers = 3;
+      for (let i = 0; i < flameLayers; i++) {
+        const alpha = (1 - progress) * (1 - i / flameLayers);
+        ctx.fillStyle = `rgba(255, ${200 - i * 60}, 0, ${alpha * 0.6})`;
+        const y = h - (h * progress * (1 + i * 0.3));
+        ctx.fillRect(0, y, w, h - y);
+      }
+    }
+
+    function drawMeltingGlass(ctx, w, h, progress) {
+      // 中心的玻璃碎片，随着时间逐渐熔合成一个球体
+      const centerX = w / 2;
+      const centerY = h * 0.6;
+      const baseRadius = 40;
+      const finalRadius = 80;
+
+      const radius = baseRadius + (finalRadius - baseRadius) * progress;
+      ctx.fillStyle = window.appState.glass.color || "rgba(200, 150, 255, 0.4)";
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 碎片边缘发光
+      ctx.strokeStyle = `rgba(200, 150, 255, ${(1 - progress) * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function drawGoldSeams(ctx, w, h, progress) {
+      // 金线：从中心向外辐射
+      if (progress > 0.5) {
+        const goldAlpha = (progress - 0.5) * 2; // 0.5 秒后才开始浮现
+        ctx.strokeStyle = `rgba(218, 165, 32, ${goldAlpha})`;
+        ctx.lineWidth = 3;
+
+        const centerX = w / 2;
+        const centerY = h * 0.6;
+        const numSeams = 6;
+
+        for (let i = 0; i < numSeams; i++) {
+          const angle = (i / numSeams) * Math.PI * 2;
+          const length = 80 * progress;
+          const x2 = centerX + Math.cos(angle) * length;
+          const y2 = centerY + Math.sin(angle) * length;
+
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ===== Scene 6: 收束 =====
+    function initClosure() {
+      // 显示工艺品预览
+      const preview = document.getElementById("artworkPreview");
+      if (window.appState.artwork) {
+        preview.innerHTML = `<img src="${window.appState.artwork}" style="width: 100%; height: 100%; border-radius: 16px; object-fit: cover;" />`;
+      } else {
+        // 如果没有画布，显示一个占位符
+        preview.style.background = window.appState.glass.color || "#ccc";
+      }
+
+      // 显示具体的回应
+      const storyText = generateClosureMessage();
+      document.getElementById("closureStory").innerHTML = storyText;
+    }
+
+    function generateClosureMessage() {
+      const { main, sub, story } = window.appState.emotion;
+      const baseMessages = {
+        sad: (sub, story) => `那份${sub}关于${story}，是真实的。今天你没有忽略它，反而把它做成了光。`,
+        happy: (sub, story) => `你的${sub}闪闪发光。这${story}值得被珍惜。`,
+        angry: (sub, story) => `${sub}是一种信号。关于${story}，你的感受是正当的。`,
+        neutral: (sub, story) => `${sub}的时刻也很珍贵。${story}——慢慢感受。`,
+        surprised: (sub, story) => `${sub}让生活有了颜色。${story}，多有趣啊。`,
+      };
+      const msg = baseMessages[main]?.(sub || "感受", story || "这个时刻");
+      return msg || `你带着${sub || "情绪"}，重建了自己。💛`;
+    }
+
+    window.downloadArtwork = () => {
+      if (window.appState.artwork) {
+        const a = document.createElement("a");
+        a.href = window.appState.artwork;
+        a.download = `kintsugi-${Date.now()}.png`;
+        a.click();
+      }
+    };
+
+    window.restartJourney = () => {
+      window.appState.emotion = { main: null, sub: null, intensity: 0.5, story: "" };
+      window.appState.glass = { color: "", particles: [] };
+      window.appState.artwork = null;
+      switchScene(0);
+      initWelcome();
+    };
+
+    // 初始化
+    initWelcome();
+  </script>
+</body>
+</html>
