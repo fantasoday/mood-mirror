@@ -408,6 +408,9 @@ const S = {
   intensity: 0,
   composition: [],       // [{word, color, points, x, y, rot, scale}]
   artworkName: "",
+  nameOptions: null,
+  nameOptionsPromise: null,
+  nameOptionsVersion: 0,
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -769,8 +772,12 @@ function createLiveRecognition(runId) {
     liveSpeech.listening = false;
     $("micBtn").classList.remove("recording");
     if (liveSpeech.manualStop) return;
+    if (liveSpeech.interimText.trim()) {
+      appendLiveFinal(liveSpeech.interimText);
+      S.voiceUsed = true;
+    }
     window.clearTimeout(liveSpeech.restartTimer);
-    liveSpeech.restartTimer = window.setTimeout(startRecognitionCycle, 320);
+    liveSpeech.restartTimer = window.setTimeout(startRecognitionCycle, 60);
   };
   return rec;
 }
@@ -955,7 +962,14 @@ const SHARD_SHAPES = [
 ];
 let shardNodes = new Map(); // word -> {g, cx, cy, phase}
 
+function invalidateArtworkNames() {
+  S.nameOptions = null;
+  S.nameOptionsPromise = null;
+  S.nameOptionsVersion += 1;
+}
+
 async function refreshImagery() {
+  invalidateArtworkNames();
   if (!S.sessionId) { renderShards(fallbackShards()); return; }
   $("micHint").textContent = "玻璃里有什么正在成形…";
   const out = await api(`/api/sessions/${S.sessionId}/imagery`, { method: "POST" }).catch(() => null);
@@ -979,7 +993,10 @@ function fallbackShards() {
 
 function renderShards(list) {
   const svg = $("shardSky");
-  const slots = [ [110, 90], [330, 120], [200, 210], [90, 240], [370, 250], [250, 60], [160, 300] ];
+  const slots = [
+    [92, 82], [330, 92], [210, 190], [82, 238], [372, 238],
+    [242, 58], [158, 292], [300, 292], [420, 150], [58, 155],
+  ];
   list.forEach((item, i) => {
     if (shardNodes.has(item.word)) return;
     const [cx, cy] = slots[shardNodes.size % slots.length];
@@ -1024,7 +1041,10 @@ function enterBench() {
   const layer = $("benchPieces");
   layer.innerHTML = "";
   benchPieces.length = 0;
-  const startSlots = [ [90, 170], [240, 150], [390, 170], [160, 100], [320, 95], [60, 90], [420, 110] ];
+  const startSlots = [
+    [80, 170], [212, 150], [345, 170], [160, 95], [300, 92],
+    [58, 96], [420, 112], [116, 235], [260, 232], [390, 238],
+  ];
   [...shardNodes.values()].forEach((s2, i) => {
     const [x, y] = startSlots[i % startSlots.length];
     addBenchPiece({ word: s2.item.word, color: s2.item.color, points: s2.points, x, y, rot: s2.rot, scale: s2.scale * 0.82, broken: false });
@@ -1160,6 +1180,7 @@ function enterFurnace() {
   sfx.furnace(13);
   // 音乐：现在就开始后台生成（最长 90s，被熔炉+命名交互遮住）
   if (S.sessionId) api(`/api/sessions/${S.sessionId}/music`, { method: "POST" }).catch(() => {});
+  prefetchArtworkNames();
   // 火焰升起
   const glowE = $("glowE"), flames = $("flames");
   let t0 = performance.now();
@@ -1209,15 +1230,32 @@ function localNames() {
   const v = () => VESSELS[Math.floor(Math.random() * VESSELS.length)];
   return [...new Set([`${pick()}铸成的${v()}`, `${pick()}的${v()}`, `冷却后的${v()}`])].slice(0, 3);
 }
-async function enterName() {
-  gotoScene("sceneName");
-  buildComposition($("artworkPiece"), { gold: true });
-  let names = null;
-  if (S.sessionId) {
-    const out = await api(`/api/sessions/${S.sessionId}/artwork-name`, { method: "POST" }).catch(() => null);
-    if (out && out.ok) names = out.names;
+function prefetchArtworkNames() {
+  if (S.nameOptions && S.nameOptions.length) return Promise.resolve(S.nameOptions);
+  if (S.nameOptionsPromise) return S.nameOptionsPromise;
+  if (!S.sessionId) {
+    S.nameOptions = localNames();
+    return Promise.resolve(S.nameOptions);
   }
-  if (!names || !names.length) names = localNames();
+  const version = S.nameOptionsVersion;
+  S.nameOptionsPromise = api(`/api/sessions/${S.sessionId}/artwork-name`, { method: "POST" })
+    .then((out) => {
+      if (version !== S.nameOptionsVersion) return S.nameOptions || localNames();
+      const names = out && out.ok && Array.isArray(out.names) ? out.names.filter(Boolean) : [];
+      S.nameOptions = names.length ? names : localNames();
+      return S.nameOptions;
+    })
+    .catch(() => {
+      if (version !== S.nameOptionsVersion) return S.nameOptions || localNames();
+      S.nameOptions = localNames();
+      return S.nameOptions;
+    })
+    .finally(() => {
+      if (version === S.nameOptionsVersion) S.nameOptionsPromise = null;
+    });
+  return S.nameOptionsPromise;
+}
+function renderNameOptions(names) {
   const box = $("nameChips");
   box.innerHTML = "";
   names.forEach((n) => {
@@ -1233,10 +1271,21 @@ async function enterName() {
     };
     box.appendChild(chip);
   });
+}
+function enterName() {
+  gotoScene("sceneName");
+  buildComposition($("artworkPiece"), { gold: true });
+  const names = S.nameOptions && S.nameOptions.length ? S.nameOptions : localNames();
+  renderNameOptions(names);
+  if (!S.nameOptions && S.nameOptionsPromise) {
+    S.nameOptionsPromise.then((readyNames) => {
+      if (currentScene === "sceneName" && !S.artworkName) renderNameOptions(readyNames);
+    }).catch(() => {});
+  }
   $("customName").oninput = () => {
     const v = $("customName").value.trim();
     if (v) {
-      box.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
+      $("nameChips").querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
       S.artworkName = v;
       $("nameConfirmBtn").disabled = false;
     }
