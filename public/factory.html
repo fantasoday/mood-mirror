@@ -232,7 +232,7 @@
   #colWorkbench {
     position: relative; flex: 1; width: 100%;
     overflow-y: auto; overflow-x: hidden;
-    padding: 12px 0 110px;
+    padding: 12px 0 150px;
     -webkit-overflow-scrolling: touch;
   }
   /* 顶部小字提示，替代卡片 */
@@ -295,11 +295,18 @@
     color: var(--ink-soft); margin-top: 3px;
   }
   #sceneCollection .col-foot {
-    position: absolute; bottom: 18px; left: 0; right: 0; z-index: 4;
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 90;
     display: flex; justify-content: center; gap: 12px;
-    padding: 14px 20px;
-    background: linear-gradient(180deg, transparent, rgba(237,246,250,0.85) 55%);
+    padding: 34px 20px 30px;
+    /* 从透明渐变到浓的背景色，制造"淡出"缓冲，让最后一行罐子不会突兀被切 */
+    background: linear-gradient(180deg, rgba(237,246,250,0) 0%, rgba(219,235,242,0.92) 45%, rgba(201,222,235,1) 100%);
+    pointer-events: none;
   }
+  #sceneCollection .col-foot > * { pointer-events: auto; }
+  /* 藏品间不显示底部安全线（结语才需要，避免和"回到门口"叠住）；
+     顶部的音效按钮也让位，别挡到右上角的罐子。 */
+  body[data-scene="sceneCollection"] #safety { display: none; }
+  body[data-scene="sceneCollection"] #muteBtn { top: 22px; right: 14px; opacity: 0.55; }
 
   /* ---- 回忆弹窗（淡蓝） ---- */
   #memoMask {
@@ -396,6 +403,21 @@
     box-shadow: 0 6px 12px rgba(30,60,85,0.35),
                 inset 0 0 8px rgba(255,255,255,0.08);
     animation: spin 6s linear infinite;
+    animation-play-state: paused; /* 默认不转；有音乐可播时才转 */
+    cursor: default;
+    transition: box-shadow .3s ease, transform .2s ease;
+  }
+  .vinyl.playable { cursor: pointer; }
+  .vinyl.playable:hover { box-shadow: 0 8px 18px rgba(212,165,116,0.5), inset 0 0 8px rgba(255,255,255,0.12); }
+  .vinyl.playing { animation-play-state: running; }
+  .vinyl.playable::before { transition: background .2s ease; }
+  .vinyl.playable:not(.playing) {
+    /* 播放三角形叠加，示意可点 */
+    background:
+      linear-gradient(135deg, transparent 42%, rgba(212,165,116,0.85) 42% 58%, transparent 58%),
+      radial-gradient(circle at center, var(--gold) 0 12%, transparent 12.5%),
+      repeating-radial-gradient(circle at center, #1a1a1a 0 1.5px, #262626 1.5px 3px),
+      #0a0a0a;
   }
   .vinyl::before {
     content: ''; position: absolute; top: 50%; left: 50%;
@@ -756,11 +778,11 @@
       </div>
     </div>
     <div id="memoFoot">
-      <div class="vinyl" aria-hidden="true"></div>
+      <div class="vinyl" id="memoVinyl" role="button" tabindex="0" aria-label="播放当时的音乐"></div>
       <div class="m-song">
         <div class="s-label">B G M  ·  当 时 的 声 音</div>
         <div class="s-title" id="memoSong">《 未 命 名 · Track 01 》</div>
-        <div class="s-hint">— 黑胶正在旋转 ·   声音将在稍后接入 —</div>
+        <div class="s-hint" id="memoSongHint">— 黑胶正在旋转 ·   声音将在稍后接入 —</div>
       </div>
       <div class="m-eq" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
@@ -824,6 +846,7 @@ const api = async (path, opts = {}) => {
 };
 
 let currentScene = "sceneGate";
+document.body.dataset.scene = currentScene;
 function gotoScene(id) {
   const from = $(currentScene);
   from.classList.add("leaving");
@@ -831,6 +854,7 @@ function gotoScene(id) {
     from.classList.remove("active", "leaving");
     $(id).classList.add("active");
     currentScene = id;
+    document.body.dataset.scene = id; // 让 CSS 能按场景切换 safety/muteBtn 等固定元素
   }, 550);
 }
 
@@ -2310,12 +2334,51 @@ function openMemo(m) {
   const slot = $("memoJarSlot");
   slot.innerHTML = renderJar({ comp: m.comp, size: 130 });
 
+  // 音乐：今日 memo + 结语页已生成 musicUrl 时才真正可播；其余就当装饰
+  const vinyl = $("memoVinyl");
+  const hint = $("memoSongHint");
+  memoAudioUrl = (m.today && musicUrl) ? musicUrl : null;
+  vinyl.classList.toggle("playable", !!memoAudioUrl);
+  vinyl.classList.remove("playing");
+  if (memoAudioUrl) {
+    hint.textContent = "— 点 黑 胶 播 放 · 再 点 一 次 暂 停 —";
+  } else if (m.today) {
+    hint.textContent = "— 声 音 还 在 烧 制 ·   稍 后 再 来 听 —";
+  } else {
+    hint.textContent = "— 示 例 藏 品 · 无 声 音 记 录 —";
+  }
+
   $("memoMask").classList.add("show");
 }
-function closeMemo() { $("memoMask").classList.remove("show"); }
+function closeMemo() {
+  $("memoMask").classList.remove("show");
+  // 关闭弹窗时停止播放，避免声音跟到藏品间之外
+  if (memoAudio) { try { memoAudio.pause(); } catch (_) {} memoAudio = null; }
+  $("memoVinyl")?.classList.remove("playing");
+}
 $("memoClose").onclick = closeMemo;
 $("memoMask").addEventListener("click", (e) => { if (e.target === $("memoMask")) closeMemo(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("memoMask").classList.contains("show")) closeMemo(); });
+
+/* memo 黑胶播放：把结语页生成的 musicUrl 绑到黑胶点击 */
+let memoAudio = null;
+let memoAudioUrl = null;
+function toggleMemoAudio() {
+  if (!memoAudioUrl) return;
+  const vinyl = $("memoVinyl");
+  if (memoAudio && !memoAudio.paused) {
+    memoAudio.pause();
+    vinyl.classList.remove("playing");
+    return;
+  }
+  // 复用 music-engine 的 play，返回 audio 元素；结束后自动停旋转
+  memoAudio = sfx.play(memoAudioUrl, () => { vinyl.classList.remove("playing"); });
+  vinyl.classList.add("playing");
+}
+$("memoVinyl").onclick = toggleMemoAudio;
+$("memoVinyl").addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && memoAudioUrl) { e.preventDefault(); toggleMemoAudio(); }
+});
 
 /* 命名场景 → 进入藏品间 */
 $("toCollectionBtn").onclick = () => {
