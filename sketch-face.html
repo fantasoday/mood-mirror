@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>简笔画角色 · 实时</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #F3EEE2; color: #33302B;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100%; padding: 60px 16px 24px;
+  }
+  .nav { position: fixed; top: 14px; left: 14px; display: flex; gap: 8px; z-index: 10; }
+  .nav a { text-decoration: none; font-size: 13px; padding: 7px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.75); color: #444; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .nav a.active { background: #6c5ce7; color: #fff; }
+  .stage { width: min(88vw, 380px); background: #FBF7EE; border-radius: 34px; padding: 16px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.10); }
+  .stage svg { width: 100%; height: auto; display: block; }
+  .panel { margin-top: 16px; text-align: center; }
+  .emotion { font-size: 22px; font-weight: 700; }
+  .msg { font-size: 15px; opacity: 0.75; margin-top: 4px; min-height: 22px; }
+  .status { font-size: 12px; opacity: 0.5; margin-top: 6px; }
+  button { margin-top: 12px; padding: 11px 26px; font-size: 15px; border: none;
+    border-radius: 999px; background: #6c5ce7; color: #fff; cursor: pointer;
+    box-shadow: 0 6px 18px rgba(108,92,231,0.4); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .debug { margin-top: 12px; font-size: 12px; opacity: 0.6; display: flex; gap: 10px; align-items: center; }
+  #cam { width: 110px; border-radius: 8px; transform: scaleX(-1); display: none; }
+  #cam.show { display: block; }
+</style>
+<script>
+  // 兜底：某些 MediaPipe wasm 变体会调用未定义的 emscripten `dbg`
+  (function () { var noop = function () {};
+    try { window.dbg = window.dbg || noop; } catch (e) {}
+    try { globalThis.dbg = globalThis.dbg || noop; } catch (e) {} })();
+</script>
+</head>
+<body>
+  <nav class="nav">
+    <a href="index.html">🏠 首页</a>
+    <a href="svg-face.html">🎨 SVG</a>
+    <a href="rive-face.html">🎬 Rive</a>
+    <a href="sketch-preview.html">✏️ 预览</a>
+    <a href="sketch-face.html" class="active">📷 实时</a>
+  </nav>
+
+  <div class="stage">
+    <svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="rf" x="-25%" y="-25%" width="150%" height="150%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2"/>
+        </filter>
+      </defs>
+      <g filter="url(#rf)">
+        <g id="face">
+          <circle cx="100" cy="106" r="72" fill="#FFFDF8" stroke="#33302B" stroke-width="5"/>
+          <path d="M96 34 q 12 -14 24 -3" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+          <path id="browL" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+          <path id="browR" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+          <ellipse id="eyeL" cx="72" cy="96" rx="7" ry="9" fill="#33302B"/>
+          <ellipse id="eyeR" cx="128" cy="96" rx="7" ry="9" fill="#33302B"/>
+          <g id="blush" opacity="0" stroke="#EE9AA0" stroke-width="3.5" stroke-linecap="round">
+            <path d="M60 116 l9 5"/><path d="M56 123 l9 5"/>
+            <path d="M140 116 l-9 5"/><path d="M144 123 l-9 5"/>
+          </g>
+          <path id="mouth" fill="#fff" stroke="#33302B" stroke-width="5" stroke-linejoin="round"/>
+          <path id="tear" opacity="0" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.5"/>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <div class="emotion"><span id="emoji">🙂</span> <span id="emotionLabel">准备中</span></div>
+    <div class="msg" id="msg">点击下方按钮，允许摄像头，开始体验</div>
+    <div class="status" id="status">未开始</div>
+    <button id="startBtn">开启摄像头</button>
+  </div>
+
+  <div class="debug">
+    <label><input type="checkbox" id="dbgcam"/> 显示摄像头（仅调试）</label>
+    <span id="fps"></span>
+  </div>
+  <video id="cam" playsinline muted></video>
+
+<script type="module">
+import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
+
+const $ = (id) => document.getElementById(id);
+const lerp = (a, b, t) => a + (b - a) * t;
+const video = $("cam");
+const eyeY = 96, LX = 72, RX = 128, browBaseY = 72, mouthY = 150;
+
+// 当前状态 & 目标（目标来自摄像头，状态平滑逼近目标 → 丝滑）
+const NEUTRAL = { eyeL: 1, eyeR: 1, browY: 0, browInner: 0, smile: 0.12, mouthOpen: 0,
+  blush: 0, tear: 0, gx: 0, gy: 0, roll: 0, tx: 0, ty: 0 };
+let st = { ...NEUTRAL };
+let target = { ...NEUTRAL };
+const KEYS = Object.keys(NEUTRAL);
+
+const engine = new EmotionEngine({
+  video,
+  onStatus: (m) => ($("status").textContent = m),
+  onFrame: onFrame,
+  smoothing: 0.4,
+});
+
+$("startBtn").addEventListener("click", async () => {
+  $("startBtn").disabled = true;
+  try { await engine.init(); $("startBtn").textContent = "运行中…"; }
+  catch { $("startBtn").disabled = false; }
+});
+$("dbgcam").addEventListener("change", (e) => video.classList.toggle("show", e.target.checked));
+
+let curEmotion = "";
+function onFrame(d) {
+  if (d.fps) $("fps").textContent = `${d.fps.toFixed(0)} fps`;
+  if (!d.present) { $("status").textContent = "没检测到人脸，靠近一点试试"; return; }
+  $("status").textContent = "运行中（画面不会上传）";
+  const s = d.signals, h = d.head;
+
+  // 摄像头信号 → 简笔画参数（连续映射）
+  target.eyeL = clamp(1 - s.blinkL * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  target.eyeR = clamp(1 - s.blinkR * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  target.browY = clamp(s.browUp * 13 - s.browDown * 4, -8, 14);
+  target.browInner = clamp(s.browDown * 15 - s.browInnerUp * 13, -11, 13);
+  target.smile = clamp(s.smile * 1.25 - s.frown * 1.7 - s.mouthLowerDown * 0.8, -1, 1);
+  target.mouthOpen = clamp(s.jawOpen, 0, 1);
+  target.blush = clamp(s.smile * 1.3 + s.cheek - 0.12, 0, 1);
+  target.tear = d.emotion === "sad" ? clamp(s.frown + s.browInnerUp - 0.15, 0, 1) : 0;
+  target.gx = clamp(-h.gazeX * 4 - h.yaw * 3, -5, 5);
+  target.gy = clamp(h.gazeY * 3 + h.pitch * 2, -4, 5);
+  target.roll = -(h.roll * 180) / Math.PI;
+  target.tx = clamp(-h.yaw * 14, -10, 10);
+  target.ty = clamp(h.pitch * 12, -8, 10);
+
+  // 情绪文案
+  if (d.emotion !== curEmotion) {
+    curEmotion = d.emotion;
+    const m = EMOTION_META[d.emotion];
+    $("emoji").textContent = m.emoji;
+    $("emotionLabel").textContent = m.label;
+    $("msg").textContent = m.msg;
+  }
+}
+
+// 60fps 渲染循环：状态平滑逼近目标并写入 SVG
+const brow = (cx, side, browY, browInner) => {
+  const inner = side === "L" ? cx + 14 : cx - 14;
+  const outer = side === "L" ? cx - 15 : cx + 15;
+  const y = browBaseY - browY;
+  const yi = y + browInner, yo = y - browInner * 0.15;
+  const mx = (inner + outer) / 2, my = Math.min(yi, yo) - 4;
+  return `M${outer} ${yo.toFixed(1)} Q ${mx} ${my.toFixed(1)} ${inner} ${yi.toFixed(1)}`;
+};
+function draw() {
+  KEYS.forEach((k) => (st[k] = lerp(st[k], target[k], 0.35)));
+
+  $("eyeL").setAttribute("cx", (LX + st.gx).toFixed(1));
+  $("eyeL").setAttribute("cy", (eyeY + st.gy).toFixed(1));
+  $("eyeL").setAttribute("ry", clamp(2 + st.eyeL * 7, 1.4, 15).toFixed(1));
+  $("eyeR").setAttribute("cx", (RX + st.gx).toFixed(1));
+  $("eyeR").setAttribute("cy", (eyeY + st.gy).toFixed(1));
+  $("eyeR").setAttribute("ry", clamp(2 + st.eyeR * 7, 1.4, 15).toFixed(1));
+
+  $("browL").setAttribute("d", brow(LX, "L", st.browY, st.browInner));
+  $("browR").setAttribute("d", brow(RX, "R", st.browY, st.browInner));
+
+  const half = 26, lx = 100 - half, rx2 = 100 + half;
+  const cornerY = (mouthY - st.smile * 10).toFixed(1);
+  const upperY = (mouthY - st.smile * 4).toFixed(1);
+  const lowerY = (mouthY + st.smile * 4 + st.mouthOpen * 30).toFixed(1);
+  $("mouth").setAttribute("d", `M${lx} ${cornerY} Q100 ${upperY} ${rx2} ${cornerY} Q100 ${lowerY} ${lx} ${cornerY} Z`);
+
+  $("blush").setAttribute("opacity", st.blush.toFixed(2));
+  $("tear").setAttribute("opacity", st.tear.toFixed(2));
+  $("tear").setAttribute("d", `M${RX + 2} ${eyeY + 9} q -5 11 0 18 q 6 -7 0 -18 z`);
+
+  $("face").setAttribute("transform",
+    `rotate(${st.roll.toFixed(1)} 100 106) translate(${st.tx.toFixed(1)} ${st.ty.toFixed(1)})`);
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

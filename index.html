@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>情绪疗愈 · 卡通脸 Demo</title>
+<style>
+  body { font-family: -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background: linear-gradient(135deg,#E0C3FC,#D3E4CD); min-height:100vh; margin:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; color:#333; }
+  h1 { font-size: 24px; }
+  p { opacity:.7; max-width: 420px; text-align:center; line-height:1.7; }
+  .cards { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; margin-top:20px; }
+  a.card { text-decoration:none; color:#333; background:rgba(255,255,255,.5); border-radius:24px;
+    padding:28px 34px; width:200px; text-align:center; box-shadow:0 12px 30px rgba(0,0,0,.1);
+    transition: transform .15s; }
+  a.card:hover { transform: translateY(-4px); }
+  .card .ico { font-size:44px; }
+  .card .t { font-size:18px; font-weight:700; margin-top:10px; }
+  .card .d { font-size:13px; opacity:.65; margin-top:6px; }
+  .note { font-size:12px; opacity:.5; margin-top:24px; }
+</style>
+</head>
+<body>
+  <h1>😊 情绪疗愈 · 卡通脸 Demo</h1>
+  <p>摄像头本地识别面部微表情，用卡通形象反映你的情绪。<br/>画面全程在本机处理，不上传。选一版看看效果：</p>
+  <div class="cards">
+    <a class="card" href="svg-face.html">
+      <div class="ico">🎨</div><div class="t">SVG 卡通脸</div>
+      <div class="d">开箱即用，零素材依赖，参数可调</div>
+    </a>
+    <a class="card" href="rive-face.html">
+      <div class="ico">🎬</div><div class="t">Rive 二维动画</div>
+      <div class="d">加载 .riv 角色，动画更精致</div>
+    </a>
+    <a class="card" href="sketch-preview.html">
+      <div class="ico">✏️</div><div class="t">简笔画角色</div>
+      <div class="d">手绘线条风，静态预览</div>
+    </a>
+  </div>
+  <div class="note">需通过本地服务器打开（见 README）。摄像头要求 https 或 localhost。</div>
+</body>
+</html>

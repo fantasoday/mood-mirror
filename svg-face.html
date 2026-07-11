@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>情绪疗愈 · SVG 卡通脸</title>
+<style>
+  :root {
+    --bg1: #E0C3FC;
+    --bg2: #D3E4CD;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    transition: --bg1 1.2s, --bg2 1.2s, background 1.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    color: #333;
+  }
+  .stage {
+    width: min(90vw, 460px);
+    aspect-ratio: 1 / 1.1;
+    background: rgba(255,255,255,0.35);
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  svg { width: 100%; height: 100%; }
+  .panel {
+    margin-top: 18px;
+    text-align: center;
+    max-width: min(90vw, 460px);
+  }
+  .emotion { font-size: 30px; font-weight: 700; }
+  .msg { font-size: 16px; opacity: 0.8; margin-top: 6px; min-height: 24px; }
+  .status { font-size: 13px; opacity: 0.55; margin-top: 8px; }
+  button {
+    margin-top: 14px;
+    padding: 12px 28px;
+    font-size: 16px;
+    border: none;
+    border-radius: 999px;
+    background: #6c5ce7;
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(108,92,231,0.4);
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .bars { margin-top: 14px; width: min(90vw, 460px); }
+  .bar-row { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
+  .bar-row .name { width: 44px; text-align: right; opacity: 0.7; }
+  .bar-track { flex: 1; height: 6px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0; background: #6c5ce7; border-radius: 3px; transition: width 0.1s; }
+  .debug { margin-top: 12px; display: flex; align-items: center; gap: 10px; font-size: 12px; opacity: 0.6; }
+  #cam { width: 120px; border-radius: 8px; transform: scaleX(-1); display: none; }
+  #cam.show { display: block; }
+  .nav { position: fixed; top: 14px; left: 14px; display: flex; gap: 8px; z-index: 10; }
+  .nav a { text-decoration: none; font-size: 13px; padding: 7px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.7); color: #444; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .nav a.active { background: #6c5ce7; color: #fff; }
+</style>
+<script>
+  // 兜底：某些 MediaPipe wasm 变体会调用未定义的 emscripten `dbg`，
+  // 导致 "dbg is not a function"。这里在加载 wasm 前先补一个空实现。
+  (function () {
+    var noop = function () {};
+    try { window.dbg = window.dbg || noop; } catch (e) {}
+    try { globalThis.dbg = globalThis.dbg || noop; } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+  <nav class="nav">
+    <a href="index.html">🏠 首页</a>
+    <a href="svg-face.html" class="active">🎨 SVG</a>
+    <a href="rive-face.html">🎬 Rive</a>
+  </nav>
+  <div class="stage">
+    <!-- 卡通脸 -->
+    <svg viewBox="0 0 400 420" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="skin" cx="45%" cy="40%">
+          <stop offset="0%" stop-color="#FFE7CE"/>
+          <stop offset="100%" stop-color="#FFD1A6"/>
+        </radialGradient>
+      </defs>
+      <g id="face">
+        <!-- 脸 -->
+        <ellipse cx="200" cy="210" rx="135" ry="150" fill="url(#skin)" stroke="#E9A97B" stroke-width="3"/>
+        <!-- 腮红 -->
+        <ellipse id="cheekL" cx="135" cy="250" rx="26" ry="16" fill="#FF9AA2" opacity="0"/>
+        <ellipse id="cheekR" cx="265" cy="250" rx="26" ry="16" fill="#FF9AA2" opacity="0"/>
+        <!-- 眉毛 -->
+        <path id="browL" d="M118 138 Q150 130 182 138" stroke="#7A5230" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <path id="browR" d="M282 138 Q250 130 218 138" stroke="#7A5230" stroke-width="9" fill="none" stroke-linecap="round"/>
+        <!-- 眼睛 -->
+        <g>
+          <ellipse id="eyeL" cx="150" cy="182" rx="30" ry="26" fill="#fff" stroke="#C98A5E" stroke-width="2"/>
+          <circle id="pupilL" cx="150" cy="182" r="12" fill="#3a2b23"/>
+        </g>
+        <g>
+          <ellipse id="eyeR" cx="250" cy="182" rx="30" ry="26" fill="#fff" stroke="#C98A5E" stroke-width="2"/>
+          <circle id="pupilR" cx="250" cy="182" r="12" fill="#3a2b23"/>
+        </g>
+        <!-- 嘴 -->
+        <path id="mouth" d="M150 300 Q200 306 250 300 Q200 316 150 300 Z" fill="#B4453F" stroke="#8f332e" stroke-width="2"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <div class="emotion"><span id="emoji">🙂</span> <span id="emotionLabel">准备中</span></div>
+    <div class="msg" id="msg">点击下方按钮，允许摄像头，开始体验</div>
+    <div class="status" id="status">未开始</div>
+    <button id="startBtn">开启摄像头</button>
+  </div>
+
+  <div class="bars" id="bars"></div>
+
+  <div class="debug">
+    <label><input type="checkbox" id="dbg"/> 显示摄像头（仅调试用）</label>
+    <span id="fps"></span>
+  </div>
+
+  <video id="cam" playsinline muted></video>
+
+<script type="module">
+import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
+
+const $ = (id) => document.getElementById(id);
+const video = $("cam");
+
+// 情绪进度条
+const barOrder = ["happy", "surprised", "sad", "angry", "neutral"];
+const bars = {};
+for (const k of barOrder) {
+  const row = document.createElement("div");
+  row.className = "bar-row";
+  row.innerHTML = `<span class="name">${EMOTION_META[k].label}</span>
+    <span class="bar-track"><span class="bar-fill"></span></span>`;
+  $("bars").appendChild(row);
+  bars[k] = row.querySelector(".bar-fill");
+}
+
+const engine = new EmotionEngine({
+  video,
+  onStatus: (m) => ($("status").textContent = m),
+  onFrame: render,
+  smoothing: 0.35,
+});
+
+$("startBtn").addEventListener("click", async () => {
+  $("startBtn").disabled = true;
+  try {
+    await engine.init();
+    $("startBtn").textContent = "运行中…";
+  } catch {
+    $("startBtn").disabled = false;
+  }
+});
+$("dbg").addEventListener("change", (e) =>
+  video.classList.toggle("show", e.target.checked)
+);
+
+let curEmotion = "";
+
+function render(d) {
+  if (d.fps) $("fps").textContent = `${d.fps.toFixed(0)} fps`;
+  if (!d.present) {
+    $("status").textContent = "没检测到人脸，靠近一点试试";
+    return;
+  }
+  $("status").textContent = "运行中（画面不会上传）";
+  const s = d.signals;
+
+  // ---- 眼睛：眨眼 + 睁大 ----
+  const openL = clamp(26 * (1 - s.blinkL * 1.3) + s.eyeWide * 10, 2, 34);
+  const openR = clamp(26 * (1 - s.blinkR * 1.3) + s.eyeWide * 10, 2, 34);
+  $("eyeL").setAttribute("ry", openL.toFixed(1));
+  $("eyeR").setAttribute("ry", openR.toFixed(1));
+
+  // ---- 瞳孔：视线 ----
+  const gx = clamp(-d.head.gazeX * 10 - d.head.yaw * 8, -12, 12);
+  const gy = clamp(d.head.gazeY * 8 + d.head.pitch * 6, -8, 10);
+  $("pupilL").setAttribute("cx", 150 + gx); $("pupilL").setAttribute("cy", 182 + gy);
+  $("pupilR").setAttribute("cx", 250 + gx); $("pupilR").setAttribute("cy", 182 + gy);
+
+  // ---- 眉毛 ----
+  const raise = s.browUp * 22;
+  const by = 138 - raise;
+  const innerDelta = s.browDown * 20 - s.browInnerUp * 16; // +下压=生气，-抬起=难过
+  const innerY = by + innerDelta;
+  $("browL").setAttribute("d", `M118 ${by.toFixed(1)} Q150 ${(by - 8).toFixed(1)} 182 ${innerY.toFixed(1)}`);
+  $("browR").setAttribute("d", `M282 ${by.toFixed(1)} Q250 ${(by - 8).toFixed(1)} 218 ${innerY.toFixed(1)}`);
+
+  // ---- 嘴 ----
+  const half = clamp(55 - s.pucker * 28, 18, 60);
+  const lx = 200 - half, rx = 200 + half;
+  const lift = s.smile * 45 - s.frown * 28;
+  const cornerY = 300 - lift;
+  const upperY = 296 - s.smile * 6 + s.jawOpen * 2;
+  const lowerY = 304 + s.jawOpen * 55 + s.frown * 4;
+  $("mouth").setAttribute(
+    "d",
+    `M${lx} ${cornerY.toFixed(1)} Q200 ${upperY.toFixed(1)} ${rx} ${cornerY.toFixed(1)} Q200 ${lowerY.toFixed(1)} ${lx} ${cornerY.toFixed(1)} Z`
+  );
+
+  // ---- 腮红（开心时出现）----
+  const blush = clamp(s.smile * 1.4 + s.cheek, 0, 1);
+  $("cheekL").setAttribute("opacity", (blush * 0.8).toFixed(2));
+  $("cheekR").setAttribute("opacity", (blush * 0.8).toFixed(2));
+
+  // ---- 头部姿态 ----
+  const rollDeg = (d.head.roll * 180) / Math.PI;
+  const tx = clamp(-d.head.yaw * 40, -30, 30);
+  const ty = clamp(d.head.pitch * 30, -25, 25);
+  $("face").setAttribute("transform", `rotate(${(-rollDeg).toFixed(1)} 200 210) translate(${tx.toFixed(1)} ${ty.toFixed(1)})`);
+
+  // ---- 情绪文案 + 背景 + 进度条 ----
+  const maxScore = Math.max(...barOrder.map((k) => d.scores[k]));
+  for (const k of barOrder) {
+    bars[k].style.width = `${clamp((d.scores[k] / (maxScore || 1)) * 100, 0, 100)}%`;
+  }
+  if (d.emotion !== curEmotion) {
+    curEmotion = d.emotion;
+    const m = EMOTION_META[d.emotion];
+    $("emoji").textContent = m.emoji;
+    $("emotionLabel").textContent = m.label;
+    $("msg").textContent = m.msg;
+    document.body.style.background = `linear-gradient(135deg, ${m.bg[0]}, ${m.bg[1]})`;
+  }
+}
+</script>
+</body>
+</html>

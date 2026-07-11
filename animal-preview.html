@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>小动物角色（橘猫）· 静态预览</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    background: #EAF2EA; color: #33302B; padding: 70px 20px 44px; }
+  .nav { position: fixed; top: 14px; left: 14px; display: flex; gap: 8px; z-index: 10; flex-wrap: wrap; }
+  .nav a { text-decoration: none; font-size: 13px; padding: 7px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.75); color: #444; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .nav a.active { background: #6c5ce7; color: #fff; }
+  h1 { text-align: center; font-size: 22px; font-weight: 700; }
+  .sub { text-align: center; opacity: 0.62; font-size: 14px; margin: -4px auto 22px; max-width: 560px; line-height: 1.6; }
+  .hero { max-width: 380px; margin: 0 auto; text-align: center; }
+  .hero .box { background: #F7FBF6; border-radius: 28px; padding: 12px; box-shadow: 0 14px 34px rgba(0,0,0,0.09); }
+  .hero svg { width: 280px; height: auto; }
+  .btns { margin-top: 16px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .btns button { border: none; background: rgba(255,255,255,0.85); color: #444; padding: 9px 16px;
+    border-radius: 999px; font-size: 14px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
+  .btns button.on { background: #6c5ce7; color: #fff; }
+  .row2 { margin-top: 10px; display: flex; gap: 14px; justify-content: center; align-items: center; font-size: 13px; opacity: .8; flex-wrap: wrap; }
+  .row2 label { display: flex; align-items: center; gap: 6px; }
+  .gallery { max-width: 940px; margin: 40px auto 0; }
+  .gallery h2 { text-align: center; font-size: 15px; opacity: 0.55; font-weight: 600; }
+  .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 14px; }
+  .card { background: #F7FBF6; border-radius: 20px; padding: 12px 8px 14px; box-shadow: 0 8px 22px rgba(0,0,0,0.06);
+    display: flex; flex-direction: column; align-items: center; }
+  .card svg { width: 100%; max-width: 160px; height: auto; }
+  .card .name { margin-top: 4px; font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+  <nav class="nav">
+    <a href="index.html">🏠 首页</a>
+    <a href="svg-face.html">🎨 SVG</a>
+    <a href="sketch-preview.html">✏️ 简笔画</a>
+    <a href="animal-preview.html" class="active">🐱 小动物</a>
+  </nav>
+
+  <h1>🐱 橘猫角色 · 表情预览</h1>
+  <div class="sub">比简笔画更复杂：耳朵、身体、爪子、尾巴、胡须、带高光的大眼睛、软阴影。点按钮看它<b>平滑过渡</b>——耳朵会随情绪竖起/耷拉。</div>
+
+  <div class="hero">
+    <div class="box"><div id="heroFace"></div></div>
+    <div class="btns" id="btns"></div>
+    <div class="row2">
+      <label><input type="checkbox" id="auto"/> 自动循环</label>
+      <label>过渡速度 <input type="range" id="speed" min="0.03" max="0.3" step="0.01" value="0.12"/></label>
+    </div>
+  </div>
+
+  <div class="gallery">
+    <h2>—— 五种表情定格 ——</h2>
+    <div class="grid" id="grid"></div>
+  </div>
+
+<script>
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const INK = "#4A3B32";
+
+function buildAnimal(p, i) {
+  const P = Object.assign({ eyeOpen:1, upperLid:0.12, lowerLid:0, pupilY:0, browY:0,
+    browInner:0, earTilt:0, smile:0.1, mouthOpen:0, blush:0, tear:0 }, p);
+  const eLX = 92, eRX = 148, eY = 122, eR = 17;
+
+  const eye = (ex, side) => {
+    const ry = clamp(eR * P.eyeOpen, 3, 27);
+    const up = 2 * ry * clamp(P.upperLid, 0, 1);
+    const low = 2 * ry * clamp(P.lowerLid, 0, 1);
+    const clip = `ec${i}${side}`;
+    return `
+      <clipPath id="${clip}"><ellipse cx="${ex}" cy="${eY}" rx="${eR}" ry="${ry.toFixed(1)}"/></clipPath>
+      <ellipse cx="${ex}" cy="${eY}" rx="${eR}" ry="${ry.toFixed(1)}" fill="#FFFDF9"/>
+      <g clip-path="url(#${clip})">
+        <circle cx="${ex}" cy="${(eY + P.pupilY).toFixed(1)}" r="11.5" fill="${INK}"/>
+        <circle cx="${ex - 4}" cy="${(eY + P.pupilY - 5).toFixed(1)}" r="3.6" fill="#fff"/>
+        <rect x="${ex - eR - 1}" y="${(eY - ry - 0.5).toFixed(1)}" width="${2 * eR + 2}" height="${up.toFixed(1)}" fill="url(#fur${i})"/>
+        <rect x="${ex - eR - 1}" y="${(eY + ry - low).toFixed(1)}" width="${2 * eR + 2}" height="${(low + 0.5).toFixed(1)}" fill="url(#fur${i})"/>
+      </g>
+      <ellipse cx="${ex}" cy="${eY}" rx="${eR}" ry="${ry.toFixed(1)}" fill="none" stroke="${INK}" stroke-width="2.5"/>`;
+  };
+  const brow = (ex, side) => {
+    const inner = side === "L" ? ex + 13 : ex - 13;
+    const outer = side === "L" ? ex - 13 : ex + 13;
+    const y = eY - 25 - P.browY, yi = y + P.browInner, yo = y - P.browInner * 0.15;
+    const mx = (inner + outer) / 2, my = Math.min(yi, yo) - 3;
+    return `<path d="M${outer} ${yo.toFixed(1)} Q${mx} ${my.toFixed(1)} ${inner} ${yi.toFixed(1)}" fill="none" stroke="#B5651D" stroke-width="4.5" stroke-linecap="round"/>`;
+  };
+
+  const c = (168 - P.smile * 8).toFixed(1);
+  const m = (168 + P.smile * 12).toFixed(1);
+  const openRy = (P.mouthOpen * 13).toFixed(1);
+  const mouth = `${P.mouthOpen > 0.02
+      ? `<ellipse cx="120" cy="${(170 + P.mouthOpen * 4).toFixed(1)}" rx="10" ry="${openRy}" fill="#8f4a4a" stroke="${INK}" stroke-width="2.5"/>`
+      : ""}
+    <path d="M106 ${c} Q120 ${m} 134 ${c}" fill="none" stroke="${INK}" stroke-width="3.5" stroke-linecap="round"/>`;
+
+  const blushG = `<g opacity="${clamp(P.blush,0,1).toFixed(2)}"><ellipse cx="80" cy="150" rx="13" ry="7.5" fill="#F39"/><ellipse cx="160" cy="150" rx="13" ry="7.5" fill="#F39"/></g>`
+    .replace(/#F39/g, "#F59AA0");
+  const tearG = P.tear > 0.02
+    ? `<path d="M${eRX + 7} ${eY + 10} q -4 10 0 16 q 5 -6 0 -16 z" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.5" opacity="${clamp(P.tear,0,1).toFixed(2)}"/>`
+    : "";
+
+  return `<svg viewBox="0 0 240 262" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="fur${i}" cx="42%" cy="34%"><stop offset="0%" stop-color="#FAD199"/><stop offset="100%" stop-color="#EF9E45"/></radialGradient>
+      <radialGradient id="belly${i}" cx="50%" cy="40%"><stop offset="0%" stop-color="#FDF0D8"/><stop offset="100%" stop-color="#F7DEB0"/></radialGradient>
+    </defs>
+    <!-- 尾巴 -->
+    <path d="M186 212 q 46 6 40 -38 q -4 -22 -20 -15 q 11 6 12 22 q 1 20 -32 20 Z" fill="url(#fur${i})" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>
+    <!-- 身体 -->
+    <ellipse cx="120" cy="208" rx="66" ry="50" fill="url(#fur${i})" stroke="${INK}" stroke-width="3.5"/>
+    <ellipse cx="120" cy="216" rx="40" ry="36" fill="url(#belly${i})"/>
+    <ellipse cx="98" cy="248" rx="16" ry="11" fill="url(#fur${i})" stroke="${INK}" stroke-width="3"/>
+    <ellipse cx="142" cy="248" rx="16" ry="11" fill="url(#fur${i})" stroke="${INK}" stroke-width="3"/>
+    <!-- 耳朵 -->
+    <g transform="rotate(${P.earTilt} 92 82)">
+      <path d="M84 90 L74 32 L114 72 Z" fill="url(#fur${i})" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M87 80 L80 46 L104 70 Z" fill="#F6B4C0"/>
+    </g>
+    <g transform="rotate(${-P.earTilt} 148 82)">
+      <path d="M156 90 L166 32 L126 72 Z" fill="url(#fur${i})" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M153 80 L160 46 L136 70 Z" fill="#F6B4C0"/>
+    </g>
+    <!-- 头 -->
+    <circle cx="120" cy="120" r="75" fill="url(#fur${i})" stroke="${INK}" stroke-width="3.5"/>
+    <!-- 额头条纹 -->
+    <g stroke="#D98A3A" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.8">
+      <path d="M120 50 v16"/><path d="M104 54 l5 14"/><path d="M136 54 l-5 14"/>
+    </g>
+    ${brow(eLX, "L")}${brow(eRX, "R")}
+    ${eye(eLX, "L")}${eye(eRX, "R")}
+    <!-- 鼻子 -->
+    <path d="M113 150 L127 150 L120 158 Z" fill="#C56B57" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/>
+    ${mouth}
+    <!-- 胡须 -->
+    <g stroke="#B5651D" stroke-width="2" stroke-linecap="round" opacity="0.7" fill="none">
+      <path d="M86 156 q -24 -3 -38 -8"/><path d="M86 164 q -24 0 -40 1"/><path d="M86 172 q -24 3 -38 10"/>
+      <path d="M154 156 q 24 -3 38 -8"/><path d="M154 164 q 24 0 40 1"/><path d="M154 172 q 24 3 38 10"/>
+    </g>
+    ${blushG}${tearG}
+  </svg>`;
+}
+
+const PRESETS = {
+  neutral:   { label:"平静", eyeOpen:1,   upperLid:0.12, lowerLid:0,   pupilY:0,  browY:0,  browInner:0,  earTilt:0,  smile:0.1,  mouthOpen:0,   blush:0,   tear:0 },
+  happy:     { label:"开心", eyeOpen:1,   upperLid:0.05, lowerLid:0.55,pupilY:0,  browY:2,  browInner:-1, earTilt:-7, smile:0.9,  mouthOpen:0.15,blush:0.9, tear:0 },
+  sad:       { label:"难过", eyeOpen:0.95,upperLid:0.28, lowerLid:0,   pupilY:-3, browY:-2, browInner:-8, earTilt:11, smile:-0.5, mouthOpen:0,   blush:0,   tear:1 },
+  surprised: { label:"惊讶", eyeOpen:1.5, upperLid:0,    lowerLid:0,   pupilY:0,  browY:9,  browInner:0,  earTilt:-9, smile:0,    mouthOpen:0.8, blush:0,   tear:0 },
+  angry:     { label:"生气", eyeOpen:1,   upperLid:0.15, lowerLid:0,   pupilY:0,  browY:-3, browInner:9,  earTilt:14, smile:-0.4, mouthOpen:0.05,blush:0,   tear:0 },
+};
+const KEYS = Object.keys(PRESETS);
+const NUM = ["eyeOpen","upperLid","lowerLid","pupilY","browY","browInner","earTilt","smile","mouthOpen","blush","tear"];
+
+// 静态画廊
+const grid = document.getElementById("grid");
+KEYS.forEach((k, i) => {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = buildAnimal(PRESETS[k], i) + `<div class="name">${PRESETS[k].label}</div>`;
+  grid.appendChild(card);
+});
+
+// 主角平滑过渡
+const heroFace = document.getElementById("heroFace");
+const btns = document.getElementById("btns");
+let state = { ...PRESETS.neutral };
+let target = { ...PRESETS.neutral };
+let speed = 0.12;
+KEYS.forEach((k) => {
+  const b = document.createElement("button");
+  b.textContent = PRESETS[k].label; b.dataset.k = k;
+  b.onclick = () => { NUM.forEach((n) => (target[n] = PRESETS[k][n])); mark(k); };
+  btns.appendChild(b);
+});
+function mark(k){ [...btns.children].forEach((b) => b.classList.toggle("on", b.dataset.k === k)); }
+document.getElementById("speed").oninput = (e) => (speed = +e.target.value);
+let autoTimer = null, ai = 0;
+document.getElementById("auto").onchange = (e) => {
+  clearInterval(autoTimer);
+  if (e.target.checked) autoTimer = setInterval(() => { ai = (ai + 1) % KEYS.length; NUM.forEach((n)=>target[n]=PRESETS[KEYS[ai]][n]); mark(KEYS[ai]); }, 1600);
+};
+mark("neutral");
+function tick() {
+  NUM.forEach((n) => (state[n] = lerp(state[n], target[n], speed)));
+  heroFace.innerHTML = buildAnimal(state, 99);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>

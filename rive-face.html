@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>情绪疗愈 · Rive 卡通角色</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #E0C3FC, #D3E4CD);
+    transition: background 1.2s;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100%; color: #333; padding: 20px;
+  }
+  h1 { font-size: 18px; opacity: 0.7; font-weight: 600; }
+  .stage {
+    width: min(90vw, 460px); aspect-ratio: 1 / 1.05;
+    background: rgba(255,255,255,0.35); border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  #rive { width: 100%; height: 100%; }
+  .placeholder {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 30px;
+  }
+  .placeholder .big { font-size: 80px; }
+  .placeholder .lbl { font-size: 26px; font-weight: 700; margin-top: 10px; }
+  .placeholder .hint { font-size: 14px; opacity: 0.65; margin-top: 14px; line-height: 1.6; }
+  .msg { font-size: 16px; opacity: 0.8; margin-top: 12px; min-height: 22px; text-align: center; }
+  .status { font-size: 13px; opacity: 0.55; margin-top: 6px; }
+  .controls { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button, .filebtn {
+    padding: 10px 20px; font-size: 14px; border: none; border-radius: 999px;
+    background: #6c5ce7; color: #fff; cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: default; }
+  input[type=text] { padding: 9px 12px; border-radius: 8px; border: 1px solid #ccc; width: 260px; }
+  .mapping { margin-top: 16px; width: min(92vw, 560px); font-size: 13px; }
+  .mapping h3 { font-size: 14px; opacity: 0.7; }
+  .map-row { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
+  .map-row .in { width: 150px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .map-row .type { width: 60px; opacity: 0.5; }
+  .map-row .val { width: 50px; text-align: right; opacity: 0.6; font-variant-numeric: tabular-nums; }
+  select { padding: 5px; border-radius: 6px; }
+  #cam { width: 120px; border-radius: 8px; transform: scaleX(-1); display: none; margin-top: 10px; }
+  #cam.show { display: block; }
+  .nav { position: fixed; top: 14px; left: 14px; display: flex; gap: 8px; z-index: 10; }
+  .nav a { text-decoration: none; font-size: 13px; padding: 7px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.7); color: #444; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .nav a.active { background: #6c5ce7; color: #fff; }
+</style>
+<script>
+  // 兜底：某些 MediaPipe wasm 变体会调用未定义的 emscripten `dbg`，
+  // 导致 "dbg is not a function"。这里在加载 wasm 前先补一个空实现。
+  (function () {
+    var noop = function () {};
+    try { window.dbg = window.dbg || noop; } catch (e) {}
+    try { globalThis.dbg = globalThis.dbg || noop; } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+  <nav class="nav">
+    <a href="index.html">🏠 首页</a>
+    <a href="svg-face.html">🎨 SVG</a>
+    <a href="rive-face.html" class="active">🎬 Rive</a>
+  </nav>
+  <h1>Rive 卡通角色 · 情绪驱动台</h1>
+  <div class="stage">
+    <canvas id="rive"></canvas>
+    <div class="placeholder" id="placeholder">
+      <svg id="sketch" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" style="width:180px;height:auto">
+        <defs>
+          <filter id="rf" x="-25%" y="-25%" width="150%" height="150%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="3.2"/>
+          </filter>
+        </defs>
+        <g filter="url(#rf)">
+          <g id="face">
+            <circle cx="100" cy="106" r="72" fill="#FFFDF8" stroke="#33302B" stroke-width="5"/>
+            <path d="M96 34 q 12 -14 24 -3" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+            <path id="browL" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+            <path id="browR" fill="none" stroke="#33302B" stroke-width="5" stroke-linecap="round"/>
+            <ellipse id="eyeL" cx="72" cy="96" rx="7" ry="9" fill="#33302B"/>
+            <ellipse id="eyeR" cx="128" cy="96" rx="7" ry="9" fill="#33302B"/>
+            <g id="blush" opacity="0" stroke="#EE9AA0" stroke-width="3.5" stroke-linecap="round">
+              <path d="M60 116 l9 5"/><path d="M56 123 l9 5"/>
+              <path d="M140 116 l-9 5"/><path d="M144 123 l-9 5"/>
+            </g>
+            <path id="mouth" fill="#fff" stroke="#33302B" stroke-width="5" stroke-linejoin="round"/>
+            <path id="tear" opacity="0" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.5"/>
+          </g>
+        </g>
+      </svg>
+      <div class="lbl" id="phLabel">准备中</div>
+      <div class="hint">这是内置的<b>实时简笔画角色</b>，会跟随你的表情。<br/>想换成 Rive 角色？加载一个 .riv（下方拖入文件或填 URL）即可自动切换。</div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg">点击「开启摄像头」开始</div>
+  <div class="status" id="status">未开始</div>
+
+  <div class="controls">
+    <button id="startBtn">开启摄像头</button>
+    <label class="filebtn">加载 .riv 文件<input type="file" id="file" accept=".riv" hidden/></label>
+    <input type="text" id="url" placeholder="或粘贴 .riv 的 URL 后回车"/>
+  </div>
+
+  <div class="mapping" id="mapping" style="display:none">
+    <h3>输入映射（角色里检测到的 inputs → 识别信号）</h3>
+    <div id="mapRows"></div>
+  </div>
+
+  <label style="margin-top:10px;font-size:12px;opacity:.6">
+    <input type="checkbox" id="dbg"/> 显示摄像头（仅调试）
+  </label>
+  <video id="cam" playsinline muted></video>
+
+<!-- Rive 运行时（canvas 版） -->
+<script src="https://unpkg.com/@rive-app/canvas@2.21.6"></script>
+<script type="module">
+import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
+
+const $ = (id) => document.getElementById(id);
+const video = $("cam");
+
+// 可映射的信号源（数值型 0~1；情绪为触发/布尔用）
+const SIGNAL_KEYS = ["smile","frown","jawOpen","browUp","browInnerUp","browDown","blink","eyeWide","pucker","cheek"];
+// 按名字猜映射
+function guessSignal(name) {
+  const n = name.toLowerCase();
+  if (/(smile|happy|mouth)/.test(n)) return "smile";
+  if (/(open|jaw|talk)/.test(n)) return "jawOpen";
+  if (/(blink|eye.*clos|close)/.test(n)) return "blink";
+  if (/(wide|eye.*open|surpr)/.test(n)) return "eyeWide";
+  if (/(brow|eyebrow)/.test(n)) return "browUp";
+  if (/(sad|frown)/.test(n)) return "frown";
+  if (/(angry|mad)/.test(n)) return "browDown";
+  if (/(pucker|kiss)/.test(n)) return "pucker";
+  return "smile";
+}
+
+let latest = null;
+let curEmotion = "";
+let riveInstance = null;
+let smInputs = []; // { input, kind, mapping, scale, threshold }
+
+const engine = new EmotionEngine({
+  video,
+  onStatus: (m) => ($("status").textContent = m),
+  onFrame: (d) => { latest = d; renderReadout(d); updateSketchTarget(d); applyToRive(d); },
+  smoothing: 0.35,
+});
+
+$("startBtn").addEventListener("click", async () => {
+  $("startBtn").disabled = true;
+  try { await engine.init(); $("startBtn").textContent = "运行中…"; }
+  catch { $("startBtn").disabled = false; }
+});
+$("dbg").addEventListener("change", (e) => video.classList.toggle("show", e.target.checked));
+$("file").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (f) f.arrayBuffer().then((buf) => loadRive({ buffer: buf }));
+});
+$("url").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.value.trim()) loadRive({ src: e.target.value.trim() });
+});
+
+// 情绪读数（背景/文案/占位）
+function renderReadout(d) {
+  if (!d.present) { $("status").textContent = "没检测到人脸，靠近一点试试"; return; }
+  $("status").textContent = "运行中（画面不会上传）";
+  if (d.emotion !== curEmotion) {
+    curEmotion = d.emotion;
+    const m = EMOTION_META[d.emotion];
+    $("phLabel").textContent = m.label;
+    $("msg").textContent = m.msg;
+    document.body.style.background = `linear-gradient(135deg, ${m.bg[0]}, ${m.bg[1]})`;
+  }
+}
+
+// ---- 内置实时简笔画角色（未加载 .riv 时显示，接同一套摄像头信号）----
+const skLerp = (a, b, t) => a + (b - a) * t;
+const SK_NEUTRAL = { eyeL: 1, eyeR: 1, browY: 0, browInner: 0, smile: 0.12, mouthOpen: 0,
+  blush: 0, tear: 0, gx: 0, gy: 0, roll: 0, tx: 0, ty: 0 };
+let skSt = { ...SK_NEUTRAL };
+let skTarget = { ...SK_NEUTRAL };
+const SK_KEYS = Object.keys(SK_NEUTRAL);
+
+function updateSketchTarget(d) {
+  if (!d.present) return;
+  const s = d.signals, h = d.head;
+  skTarget.eyeL = clamp(1 - s.blinkL * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  skTarget.eyeR = clamp(1 - s.blinkR * 1.25 + s.eyeWide * 0.9, 0.06, 1.8);
+  skTarget.browY = clamp(s.browUp * 13 - s.browDown * 3, -6, 14);
+  skTarget.browInner = clamp(s.browDown * 11 - s.browInnerUp * 10, -9, 11);
+  skTarget.smile = clamp(s.smile * 1.25 - s.frown * 1.15, -1, 1);
+  skTarget.mouthOpen = clamp(s.jawOpen, 0, 1);
+  skTarget.blush = clamp(s.smile * 1.3 + s.cheek - 0.12, 0, 1);
+  skTarget.tear = d.emotion === "sad" ? clamp(s.frown + s.browInnerUp - 0.15, 0, 1) : 0;
+  skTarget.gx = clamp(-h.gazeX * 4 - h.yaw * 3, -5, 5);
+  skTarget.gy = clamp(h.gazeY * 3 + h.pitch * 2, -4, 5);
+  skTarget.roll = -(h.roll * 180) / Math.PI;
+  skTarget.tx = clamp(-h.yaw * 14, -10, 10);
+  skTarget.ty = clamp(h.pitch * 12, -8, 10);
+}
+const skBrow = (cx, side, browY, browInner) => {
+  const inner = side === "L" ? cx + 14 : cx - 14;
+  const outer = side === "L" ? cx - 15 : cx + 15;
+  const y = 72 - browY, yi = y + browInner, yo = y - browInner * 0.15;
+  const mx = (inner + outer) / 2, my = Math.min(yi, yo) - 4;
+  return `M${outer} ${yo.toFixed(1)} Q ${mx} ${my.toFixed(1)} ${inner} ${yi.toFixed(1)}`;
+};
+function skDraw() {
+  // 已加载 Rive 角色则不必再画简笔画
+  if ($("placeholder").style.display !== "none") {
+    SK_KEYS.forEach((k) => (skSt[k] = skLerp(skSt[k], skTarget[k], 0.35)));
+    const eyeY = 96;
+    $("eyeL").setAttribute("cx", (72 + skSt.gx).toFixed(1));
+    $("eyeL").setAttribute("cy", (eyeY + skSt.gy).toFixed(1));
+    $("eyeL").setAttribute("ry", clamp(2 + skSt.eyeL * 7, 1.4, 15).toFixed(1));
+    $("eyeR").setAttribute("cx", (128 + skSt.gx).toFixed(1));
+    $("eyeR").setAttribute("cy", (eyeY + skSt.gy).toFixed(1));
+    $("eyeR").setAttribute("ry", clamp(2 + skSt.eyeR * 7, 1.4, 15).toFixed(1));
+    $("browL").setAttribute("d", skBrow(72, "L", skSt.browY, skSt.browInner));
+    $("browR").setAttribute("d", skBrow(128, "R", skSt.browY, skSt.browInner));
+    const lx = 74, rx2 = 126, mouthY = 150;
+    const cornerY = (mouthY - skSt.smile * 10).toFixed(1);
+    const upperY = (mouthY - skSt.smile * 4).toFixed(1);
+    const lowerY = (mouthY + skSt.smile * 4 + skSt.mouthOpen * 30).toFixed(1);
+    $("mouth").setAttribute("d", `M${lx} ${cornerY} Q100 ${upperY} ${rx2} ${cornerY} Q100 ${lowerY} ${lx} ${cornerY} Z`);
+    $("blush").setAttribute("opacity", skSt.blush.toFixed(2));
+    $("tear").setAttribute("opacity", skSt.tear.toFixed(2));
+    $("tear").setAttribute("d", `M130 105 q -5 11 0 18 q 6 -7 0 -18 z`);
+    $("face").setAttribute("transform",
+      `rotate(${skSt.roll.toFixed(1)} 100 106) translate(${skSt.tx.toFixed(1)} ${skSt.ty.toFixed(1)})`);
+  }
+  requestAnimationFrame(skDraw);
+}
+skDraw();
+
+// ---- 加载 Rive 角色 ----
+function loadRive(source) {
+  if (riveInstance) { try { riveInstance.cleanup(); } catch {} }
+  $("status").textContent = "加载 Rive 角色中…";
+  riveInstance = new rive.Rive({
+    ...source,               // { buffer } 或 { src }
+    canvas: $("rive"),
+    autoplay: true,
+    onLoad: () => {
+      riveInstance.resizeDrawingSurfaceToCanvas();
+      $("placeholder").style.display = "none";
+      setupInputs();
+      $("status").textContent = "角色已加载";
+    },
+    onLoadError: (e) => { $("status").textContent = "加载失败：" + e; },
+  });
+}
+window.addEventListener("resize", () => riveInstance && riveInstance.resizeDrawingSurfaceToCanvas());
+
+// ---- 读取状态机输入并建立映射 UI ----
+function setupInputs() {
+  smInputs = [];
+  $("mapRows").innerHTML = "";
+  const smNames = riveInstance.stateMachineNames;
+  if (!smNames || !smNames.length) {
+    $("mapping").style.display = "block";
+    $("mapRows").innerHTML = "<i>这个角色没有状态机（State Machine）。请用带状态机+输入的角色。</i>";
+    return;
+  }
+  const sm = smNames[0];
+  const inputs = riveInstance.stateMachineInputs(sm);
+  for (const input of inputs) {
+    // 鸭子类型判断 number / boolean / trigger
+    let kind = "trigger";
+    if (typeof input.value === "number") kind = "number";
+    else if (typeof input.value === "boolean") kind = "boolean";
+
+    const item = {
+      input, kind,
+      mapping: kind === "trigger" ? curEmotion || "happy" : guessSignal(input.name),
+      scale: 100,     // number 默认按 0~100
+      threshold: 0.5, // boolean/trigger 阈值
+      lastFire: false,
+    };
+    smInputs.push(item);
+    addMapRow(item);
+  }
+  $("mapping").style.display = "block";
+}
+
+function addMapRow(item) {
+  const row = document.createElement("div");
+  row.className = "map-row";
+  const opts =
+    item.kind === "trigger"
+      ? Object.keys(EMOTION_META).map((k) => `<option value="${k}">情绪=${EMOTION_META[k].label}</option>`).join("")
+      : SIGNAL_KEYS.map((k) => `<option value="${k}">${k}</option>`).join("") +
+        Object.keys(EMOTION_META).map((k) => `<option value="emo:${k}">情绪=${EMOTION_META[k].label}</option>`).join("");
+  row.innerHTML = `
+    <span class="in" title="${item.input.name}">${item.input.name}</span>
+    <span class="type">${item.kind}</span>
+    <select>${opts}</select>
+    ${item.kind === "number" ? `<select class="scale"><option value="100">×100</option><option value="1">×1</option></select>` : ""}
+    <span class="val">–</span>`;
+  const sel = row.querySelector("select");
+  sel.value = item.kind === "trigger" ? item.mapping : item.mapping;
+  sel.addEventListener("change", (e) => (item.mapping = e.target.value));
+  const scaleSel = row.querySelector(".scale");
+  if (scaleSel) scaleSel.addEventListener("change", (e) => (item.scale = +e.target.value));
+  item._valEl = row.querySelector(".val");
+  $("mapRows").appendChild(row);
+}
+
+// ---- 每帧把信号写进角色输入 ----
+function applyToRive(d) {
+  if (!riveInstance || !d.present) return;
+  for (const it of smInputs) {
+    if (it.kind === "number") {
+      let v;
+      if (it.mapping.startsWith("emo:")) v = d.emotion === it.mapping.slice(4) ? 1 : 0;
+      else v = d.signals[it.mapping] ?? 0;
+      it.input.value = v * it.scale;
+      if (it._valEl) it._valEl.textContent = it.input.value.toFixed(0);
+    } else if (it.kind === "boolean") {
+      let v;
+      if (it.mapping.startsWith("emo:")) v = d.emotion === it.mapping.slice(4);
+      else v = (d.signals[it.mapping] ?? 0) > it.threshold;
+      it.input.value = v;
+      if (it._valEl) it._valEl.textContent = v ? "true" : "false";
+    } else {
+      // trigger：情绪切换到目标时 fire 一次
+      const want = d.emotion === it.mapping;
+      if (want && !it.lastFire) { it.input.fire(); if (it._valEl) it._valEl.textContent = "🔥"; }
+      it.lastFire = want;
+    }
+  }
+}
+</script>
+</body>
+</html>
