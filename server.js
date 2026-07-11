@@ -352,9 +352,9 @@ async function callLLM(systemPrompt, userContent, { maxTokens = 900, temperature
   throw lastError;
 }
 
-const IMAGERY_SYSTEM_PROMPT = `你是一位温柔的心理陪伴者。用户刚刚倾诉了一段心事。请从中提炼 2-7 个「意象」——具体的、有画面感的名词短语（人、事、物、场景、感觉），必须来自用户自己的话，不要发明用户没提到的内容。
+const IMAGERY_SYSTEM_PROMPT = `你是一位温柔的心理陪伴者。用户刚刚倾诉了一段心事。请按内容丰富度提炼 3-10 个「意象词」——必须是单个词汇或很短的名词，不要输出句子、问题、多个词拼在一起的短语。必须来自用户自己的话，不要发明用户没提到的内容。用户说得越多，意象数量应该越多；不要固定输出 3 个。
 每个意象给出：
-- word: 意象短语（2-8 个字，如"加班的深夜"、"妈妈的电话"）
+- word: 单个意象词（2-4 个字优先，如"加班"、"妈妈"、"电话"、"压力"、"房间"；不要输出"天气怎么样你吃饭了吗"这种句子）
 - essence: 一句不超过 20 字的温柔注解（描述它承载了什么，不评判、不建议）
 - color: 一个柔和的十六进制颜色（低饱和玻璃质感，与该意象的情绪气质匹配）
 - weight: 1-5 的整数，它在这段倾诉里的分量
@@ -377,17 +377,154 @@ function mergeImagery(existing, incoming) {
   const merged = Array.isArray(existing) ? [...existing] : [];
   for (const item of Array.isArray(incoming) ? incoming : []) {
     if (!item || typeof item.word !== "string" || !item.word.trim()) continue;
+    const word = cleanImageryWord(item.word);
+    if (!word) continue;
     const clean = {
-      word: trimText(item.word, 16),
+      word,
       essence: trimText(item.essence, 40),
       color: /^#[0-9a-fA-F]{6}$/.test(item.color || "") ? item.color : "#8FA8C0",
       weight: clamp(Number(item.weight) || 3, 1, 5),
     };
-    const found = merged.find((m) => m.word === clean.word);
-    if (found) Object.assign(found, clean);
+    const found = merged.find((m) =>
+      m.word === clean.word ||
+      m.word.includes(clean.word) ||
+      clean.word.includes(m.word)
+    );
+    if (found) {
+      if (clean.word.length > found.word.length + 1 && found.word.length <= 4) {
+        Object.assign(found, clean);
+      }
+    }
     else merged.push(clean);
   }
-  return merged.slice(0, 7);
+  return merged.slice(0, 10);
+}
+
+const LOCAL_IMAGERY_COLORS = [
+  "#8FA8C0", "#A7B8A0", "#B6A8CC", "#C7A98B", "#8BB9BC",
+  "#C29AA0", "#9EADC8", "#B9B28A", "#A7C1B5", "#B0A0B8",
+];
+
+const LOCAL_STOP_WORDS = new Set([
+  "然后", "就是", "觉得", "感觉", "可能", "因为", "所以", "但是", "如果", "这个", "那个",
+  "其实", "真的", "有点", "一直", "还是", "没有", "不是", "可以", "今天", "现在", "时候",
+  "自己", "我们", "你们", "他们", "以后", "之前", "之后", "什么", "怎么", "为什么", "你好",
+  "怎么样", "了吗", "吗", "呢", "吧", "啊", "呀", "到了", "需要", "我要", "我想", "我需要",
+]);
+
+const LOCAL_KEYWORD_PATTERNS = [
+  "压力", "项目", "演示", "老板", "消息", "团队", "进度", "截止", "工作", "加班",
+  "考试", "学校", "作业", "同学", "老师", "家", "房间", "小灯", "电话", "妈妈",
+  "爸爸", "朋友", "伴侣", "孩子", "身体", "心里", "睡眠", "失眠", "晚上", "夜晚",
+  "天气", "公园", "糖葫芦", "大餐", "早餐", "午餐", "晚餐", "餐厅", "吃饭", "饭", "钱", "房租", "医院", "焦虑", "担心", "害怕", "委屈",
+  "孤独", "难过", "愤怒", "开心", "期待", "离开", "失去", "争吵", "沉默",
+];
+
+function hashText(text) {
+  let hash = 0;
+  for (const char of String(text || "")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return hash;
+}
+
+function cleanImageryWord(text, { allowUnknownNoun = false } = {}) {
+  const compact = trimText(String(text || "")
+    .replace(/[“”"'`（）()【】[\]{}<>《》]/g, "")
+    .replace(/[，。！？!?；;：:\s]+/g, "")
+    .replace(/(怎么样|了吗|怎么了|为什么|怎么办|可以吗|好不好|是不是|有没有|的时候|感觉|觉得|到了|然后|就是)/g, "")
+    .trim(), 16);
+  if (!compact) return "";
+  if (LOCAL_STOP_WORDS.has(compact)) return "";
+
+  const hits = LOCAL_KEYWORD_PATTERNS.filter((word) => compact.includes(word));
+  if (hits.length) {
+    return hits.sort((a, b) => b.length - a.length || compact.indexOf(a) - compact.indexOf(b))[0];
+  }
+
+  if (/^(我|你|他|她|它|我们|你们|他们|她们|它们)/.test(compact)) return "";
+  if (/(需要|想要|想|要|会|能|去|来|说|问|吃|喝|看|听|做|加|拿|给|让)$/.test(compact)) return "";
+  if (/(吗|呢|吧|啊|呀|嘛)$/.test(compact)) return "";
+
+  const possessive = compact.match(/([\u4e00-\u9fa5]{2,4})的/);
+  if (possessive && !LOCAL_STOP_WORDS.has(possessive[1])) return possessive[1];
+
+  if (/^[\u4e00-\u9fa5]{2,4}(感|声|灯|雨|风|门|窗|园|餐|家|房|路|桥|海|山|夜|梦|火|光|信|书|饭|钱|病|痛|泪|笑|气|心)$/.test(compact)) {
+    return compact;
+  }
+
+  if (allowUnknownNoun && /^[\u4e00-\u9fa5]{2,6}$/.test(compact)) {
+    return compact;
+  }
+
+  return "";
+}
+
+function localImageryFromText(text) {
+  const normalized = trimText(text, 4000);
+  if (!normalized) {
+    return [
+      { word: "说不清的感觉", essence: "还没有完全成形", color: "#8FA8C0", weight: 2 },
+      { word: "心里的一角", essence: "等待被看见", color: "#B0A8CC", weight: 2 },
+    ];
+  }
+
+  const targetCount = clamp(Math.ceil(normalized.length / 28), 3, 10);
+  const candidates = [];
+  const seen = new Set();
+  const clauses = normalized
+    .split(/[。！？!?；;\n]+|(?:，|,|、)/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  function addCandidate(raw, score = 3, options = {}) {
+    const word = cleanImageryWord(raw, options);
+    if (word.length < 2 || word.length > 6) return;
+    if (LOCAL_STOP_WORDS.has(word)) return;
+    if (/^(你?好)+$/.test(word)) return;
+    if (seen.has(word)) return;
+    seen.add(word);
+    candidates.push({
+      word,
+      score,
+      essence: word.length <= 4 ? "反复出现的词" : "这段话里的一个画面",
+    });
+  }
+
+  for (const clause of clauses) {
+    const clean = clause.replace(/\s+/g, "");
+    if (clean.length < 2) continue;
+
+    const quoted = clause.match(/[“"']([^“”"']{2,12})[”"']/);
+    if (quoted) addCandidate(quoted[1], 5);
+
+    for (const keyword of LOCAL_KEYWORD_PATTERNS) {
+      if (clean.includes(keyword)) addCandidate(keyword, 4);
+    }
+
+    const subjectNoun = clean.match(/^([\u4e00-\u9fa5]{2,6}?)(?:很|真|特别|超级|非常)?(?:好吃|难吃|好玩|好看|重要|烦|累|痛|冷|热|香|甜|苦|酸|开心|难过|可怕|舒服|沉重|轻松)/);
+    if (subjectNoun) addCandidate(subjectNoun[1], 5, { allowUnknownNoun: true });
+
+    const objectNoun = clean.match(/(?:想吃|爱吃|喜欢|讨厌|买了|吃了|去了|看到|看见|听到|想起|梦到|怀念|失去)([\u4e00-\u9fa5]{2,6})/);
+    if (objectNoun) addCandidate(objectNoun[1], 5, { allowUnknownNoun: true });
+
+    const emotionCarrier = clean.match(/([\u4e00-\u9fa5]{2,6})(?:让我|使我|令我)(?:开心|难过|焦虑|担心|害怕|生气|放松|安心|委屈)/);
+    if (emotionCarrier) addCandidate(emotionCarrier[1], 5, { allowUnknownNoun: true });
+
+    const nounish = clause.match(/(?:关于|因为|想到|担心|害怕|喜欢|讨厌|期待|失去|离开)([\u4e00-\u9fa5]{2,6})/);
+    if (nounish) addCandidate(nounish[1], 4, { allowUnknownNoun: true });
+  }
+
+  const selected = candidates
+    .sort((a, b) => b.score - a.score || a.word.length - b.word.length)
+    .slice(0, targetCount);
+
+  if (!selected.length) return localImageryFromText("");
+
+  return selected.map((item, index) => ({
+    word: item.word,
+    essence: item.essence,
+    color: LOCAL_IMAGERY_COLORS[(hashText(item.word) + index) % LOCAL_IMAGERY_COLORS.length],
+    weight: clamp(item.score, 1, 5),
+  }));
 }
 
 // ==== 音乐异步任务（内存表，进程重启即失效，落盘结果在 record.music）====
@@ -473,7 +610,7 @@ async function handleTranscribeProxy(req, res) {
     if (!response.ok) {
       let upstream = null;
       try { upstream = JSON.parse(text); } catch (_) {}
-      sendJson(res, response.status >= 500 ? 503 : response.status, {
+      sendJson(res, 200, {
         ok: false,
         fallback: true,
         error: upstream?.error?.message || upstream?.error || text.slice(0, 200) || "语音转写上游服务暂不可用",
@@ -574,13 +711,25 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && imageryMatch) {
     const record = await readRecord(imageryMatch[1]);
     const text = trimText([record.textInput, record.videoTranscript].filter(Boolean).join(" "), 4000);
+    const localImagery = localImageryFromText(text);
     if (text.length < 6) {
-      sendJson(res, 200, { ok: true, fallback: true, reason: "text too short", imagery: record.imagery || [] });
+      record.imagery = mergeImagery(record.imagery, localImagery);
+      refreshDerivedFields(record);
+      await writeRecord(record);
+      sendJson(res, 200, {
+        ok: true,
+        fallback: true,
+        reason: "text too short",
+        imagery: record.imagery || [],
+        dominantEmotion: record.dominantEmotion,
+        overallIntensity: record.overallIntensity,
+      });
       return;
     }
     try {
       const out = await callLLM(IMAGERY_SYSTEM_PROMPT, `用户的倾诉内容：\n${text}`);
-      record.imagery = mergeImagery(record.imagery, out.imagery);
+      const llmImagery = Array.isArray(out.imagery) && out.imagery.length ? out.imagery : [];
+      record.imagery = mergeImagery(record.imagery, [...llmImagery, ...localImagery]);
       record.llmAnalysis = {
         dominantEmotion: EMOTIONS_7.includes(out.dominantEmotion) ? out.dominantEmotion : undefined,
         overallIntensity: Number.isFinite(Number(out.overallIntensity))
@@ -595,7 +744,16 @@ async function handleApi(req, res, url) {
       });
     } catch (error) {
       console.warn(`[imagery] LLM 失败: ${error.message}`);
-      sendJson(res, 200, { ok: false, fallback: true, imagery: record.imagery || [] });
+      record.imagery = mergeImagery(record.imagery, localImagery);
+      refreshDerivedFields(record);
+      await writeRecord(record);
+      sendJson(res, 200, {
+        ok: false,
+        fallback: true,
+        imagery: record.imagery || [],
+        dominantEmotion: record.dominantEmotion,
+        overallIntensity: record.overallIntensity,
+      });
     }
     return;
   }

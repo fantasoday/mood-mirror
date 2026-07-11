@@ -14,14 +14,14 @@
     --ink: #3A6B85; --ink-soft: #8FB6C9; --primary: #5B9BB5;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { height: 100%; min-height: 100dvh; }
   body {
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     background: linear-gradient(170deg, #EDF6FA 0%, var(--ambient) 70%, #D2E7F1 100%);
     color: var(--ink); overflow: hidden;
     transition: background 1.2s ease;
   }
-  #stage { position: relative; width: 100%; height: 100vh; max-width: 520px; margin: 0 auto; }
+  #stage { position: relative; width: 100%; height: 100vh; height: 100dvh; max-width: 520px; margin: 0 auto; }
 
   /* ---- 场景切换 ---- */
   .scene { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; overflow: hidden; }
@@ -104,10 +104,24 @@
   #mirrorDock { width: 118px; flex: 0 0 auto; }
   #mirrorDock #mirrorFrame { width: 118px; padding: 6px 6px 2px; border-radius: 14px; }
   #spiritSay { flex: 1; }
-  #shardSky { width: 100%; flex: 1; min-height: 200px; }
-  #captions { width: 100%; text-align: center; font-size: 13.5px; color: #6E9AB2; line-height: 1.9; min-height: 54px; padding: 0 12px; white-space: pre-line; }
+  #shardSky { width: 100%; flex: 0 1 140px; min-height: 90px; }
+  #captions {
+    width: 100%; flex: 1 1 auto; min-height: 72px; max-height: 34vh; max-height: 34dvh;
+    box-sizing: border-box; padding: 12px 14px; margin: 8px 0 4px;
+    background: rgba(250,253,255,.85); border-radius: 16px;
+    box-shadow: inset 0 0 0 1px rgba(159,198,216,.35), 0 6px 18px rgba(90,140,170,.10);
+    text-align: left; font-size: 13.5px; color: #4A6B7C; line-height: 1.85;
+    white-space: pre-line; overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
+  }
+  #captions:empty::before {
+    content: "把想说的说出来 · 会一段一段留在这里";
+    color: #B4CBD6; font-size: 12.5px; letter-spacing: 1px;
+  }
+  #captions::-webkit-scrollbar { width: 4px; }
+  #captions::-webkit-scrollbar-thumb { background: rgba(91,155,181,.28); border-radius: 4px; }
   #captions .interim { opacity: .55; }
-  #talkControls { display: flex; flex-direction: column; align-items: center; gap: 9px; padding-bottom: 44px; width: 100%; }
+  #talkControls { display: flex; flex-direction: column; align-items: center; gap: 9px; padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); width: 100%; flex: 0 0 auto; }
   #micBtn {
     position: relative; width: 84px; height: 84px; border-radius: 50%; border: none; cursor: pointer;
     background: linear-gradient(135deg, #7FC4D8, #4A9EBF);
@@ -448,23 +462,32 @@
         </defs>
         <line x1="8" y1="120" x2="192" y2="120" stroke="#D5E8F1" stroke-width="1.5"/>
         <g filter="url(#rf)">
-          <g id="face" stroke="#4A90B8">
-            <circle cx="100" cy="88" r="54" fill="#FFFFFF" stroke-width="4.5"/>
-            <path id="browL" fill="none" stroke-width="4" stroke-linecap="round"/>
-            <path id="browR" fill="none" stroke-width="4" stroke-linecap="round"/>
-            <ellipse id="eyeL" cx="79" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
-            <ellipse id="eyeR" cx="121" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
-            <g id="blush" opacity="0" stroke="#EE9AA0" stroke-width="2.6" stroke-linecap="round">
-              <path d="M70 96 l7 4"/><path d="M67 102 l7 4"/><path d="M130 96 l-7 4"/><path d="M133 102 l-7 4"/>
+          <!-- 整个小人：包一层 #character 方便整体做姿态变换（倒立/坐下/呼吸偏移等） -->
+          <g id="character">
+            <!-- 火柴人身体（动态：肢体用 quadratic path，可弯曲） -->
+            <g id="body" stroke="#4A90B8" stroke-width="4.5" stroke-linecap="round" fill="none">
+              <path id="torso" d="M100 142 Q100 170 100 196"/>
+              <path id="armL"  d="M100 156 Q88 166 76 180"/>
+              <path id="armR"  d="M100 156 Q112 166 124 180"/>
+              <path id="legL"  d="M100 196 Q92 214 84 232"/>
+              <path id="legR"  d="M100 196 Q108 214 116 232"/>
+              <circle id="handL" cx="76"  cy="180" r="2.8" fill="#4A90B8" stroke="none"/>
+              <circle id="handR" cx="124" cy="180" r="2.8" fill="#4A90B8" stroke="none"/>
+              <circle id="footL" cx="84"  cy="232" r="3.2" fill="#4A90B8" stroke="none"/>
+              <circle id="footR" cx="116" cy="232" r="3.2" fill="#4A90B8" stroke="none"/>
             </g>
-            <path id="mouth" fill="#fff" stroke-width="4" stroke-linejoin="round"/>
-            <path id="tear" opacity="0" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.2"/>
-          </g>
-          <!-- 火柴人身体（静态） -->
-          <g stroke="#4A90B8" stroke-width="4.5" stroke-linecap="round" fill="none">
-            <line x1="100" y1="142" x2="100" y2="196"/>
-            <line x1="100" y1="156" x2="76" y2="176"/><line x1="100" y1="156" x2="124" y2="176"/>
-            <line x1="100" y1="196" x2="84" y2="232"/><line x1="100" y1="196" x2="116" y2="232"/>
+            <g id="face" stroke="#4A90B8">
+              <circle cx="100" cy="88" r="54" fill="#FFFFFF" stroke-width="4.5"/>
+              <path id="browL" fill="none" stroke-width="4" stroke-linecap="round"/>
+              <path id="browR" fill="none" stroke-width="4" stroke-linecap="round"/>
+              <ellipse id="eyeL" cx="79" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
+              <ellipse id="eyeR" cx="121" cy="81" rx="5" ry="6.5" fill="#4A90B8" stroke="none"/>
+              <g id="blush" opacity="0" stroke="#EE9AA0" stroke-width="2.6" stroke-linecap="round">
+                <path d="M70 96 l7 4"/><path d="M67 102 l7 4"/><path d="M130 96 l-7 4"/><path d="M133 102 l-7 4"/>
+              </g>
+              <path id="mouth" fill="#fff" stroke-width="4" stroke-linejoin="round"/>
+              <path id="tear" opacity="0" fill="#9CCBEE" stroke="#5aa0d6" stroke-width="1.2"/>
+            </g>
           </g>
         </g>
       </svg>
@@ -702,6 +725,7 @@
 
 <script src="voice-input.js"></script>
 <script src="music-engine.js"></script>
+<script src="name-forge.js"></script>
 <script type="module">
 import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
 
@@ -720,6 +744,9 @@ const S = {
   intensity: 0,
   composition: [],       // [{word, color, points, x, y, rot, scale}]
   artworkName: "",
+  nameOptions: null,
+  nameOptionsPromise: null,
+  nameOptionsVersion: 0,
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -818,6 +845,7 @@ const KEYS = Object.keys(NEUTRAL);
 
 const emotionCounts = new Map();
 let engine = null;
+let currentEmotion = "neutral"; // 供肢体驱动读取的最新情绪
 
 function onFrame(d) {
   if (!d.present) return;
@@ -836,6 +864,7 @@ function onFrame(d) {
   target.tx = clamp(-h.yaw * 10, -8, 8);
   target.ty = clamp(h.pitch * 9, -6, 8);
   emotionCounts.set(d.emotion, (emotionCounts.get(d.emotion) || 0) + 1);
+  currentEmotion = d.emotion;
 }
 
 const browPath = (cx, side, browY, browInner) => {
@@ -868,6 +897,193 @@ function drawFace() {
   requestAnimationFrame(drawFace);
 }
 drawFace();
+
+/* ==================== 火柴人肢体（动态姿态） ====================
+   每根肢体是一段 quadratic bezier：[sx, sy, cx, cy, ex, ey]
+   POSES 里定义一组姿态，情绪匹配 → 直接切；neutral 时轮播可爱姿态。
+*/
+const LIMB_IDS = ["torso", "armL", "armR", "legL", "legR"];
+
+const POSES = {
+  stand: {
+    torso:[100,142, 100,170, 100,196],
+    armL: [100,156,  88,166,  76,180],
+    armR: [100,156, 112,166, 124,180],
+    legL: [100,196,  92,214,  84,232],
+    legR: [100,196, 108,214, 116,232],
+    rot:0, cx:100, cy:150, ox:0, oy:0,
+  },
+  // 开心：双手举成 V
+  happy: {
+    torso:[100,142, 100,170, 100,196],
+    armL: [100,156,  80,140,  62,120],
+    armR: [100,156, 120,140, 138,120],
+    legL: [100,196,  92,214,  84,232],
+    legR: [100,196, 108,214, 116,232],
+    rot:0, cx:100, cy:150, ox:0, oy:-2,
+  },
+  // 难过：肩塌前倾，双手垂着
+  sad: {
+    torso:[100,146, 103,174, 106,200],
+    armL: [100,160,  92,180,  82,204],
+    armR: [100,160, 110,180, 116,204],
+    legL: [106,200,  96,218,  88,236],
+    legR: [106,200, 112,218, 120,236],
+    rot:0, cx:100, cy:150, ox:0, oy:4,
+  },
+  // 生气：双手叉腰，肘外撑
+  angry: {
+    torso:[100,142, 100,170, 100,194],
+    armL: [100,156,  72,168,  92,190],
+    armR: [100,156, 128,168, 108,190],
+    legL: [100,194,  88,214,  76,232],
+    legR: [100,194, 112,214, 124,232],
+    rot:0, cx:100, cy:150, ox:0, oy:0,
+  },
+  // 惊讶：双手往两边猛地抬起
+  surprised: {
+    torso:[100,142, 100,170, 100,196],
+    armL: [100,156,  76,138,  58,124],
+    armR: [100,156, 124,138, 142,124],
+    legL: [100,196,  90,214,  78,232],
+    legR: [100,196, 110,214, 122,232],
+    rot:0, cx:100, cy:150, ox:0, oy:-4,
+  },
+  // 蹲下：膝盖弯开，屁股沉下去
+  squat: {
+    torso:[100,158, 100,178, 100,200],
+    armL: [100,170,  82,186,  74,204],
+    armR: [100,170, 118,186, 126,204],
+    legL: [100,200,  76,212,  84,232],
+    legR: [100,200, 124,212, 116,232],
+    rot:0, cx:100, cy:150, ox:0, oy:14,
+  },
+  // 盘腿坐：两腿交叉
+  sit: {
+    torso:[100,158, 100,176, 100,196],
+    armL: [100,170,  86,190,  74,208],
+    armR: [100,170, 114,190, 126,208],
+    legL: [100,196,  78,208, 118,222],
+    legR: [100,196, 122,208,  82,222],
+    rot:0, cx:100, cy:150, ox:0, oy:20,
+  },
+  // 挥手：右手举高招手
+  wave: {
+    torso:[100,142, 100,170, 100,196],
+    armL: [100,156,  88,166,  76,180],
+    armR: [100,156, 118,130, 138,108],
+    legL: [100,196,  92,214,  84,232],
+    legR: [100,196, 108,214, 116,232],
+    rot:0, cx:100, cy:150, ox:0, oy:0,
+  },
+  // 跳起来：脚离地，手打开
+  jump: {
+    torso:[100,142, 100,168, 100,192],
+    armL: [100,156,  80,148,  66,142],
+    armR: [100,156, 120,148, 134,142],
+    legL: [100,192,  86,208,  82,222],
+    legR: [100,192, 114,208, 118,222],
+    rot:0, cx:100, cy:150, ox:0, oy:-16,
+  },
+  // 趴着（歪着头趴一会儿）：整体往右倒 78°
+  lieSide: {
+    torso:[100,142, 100,170, 100,196],
+    armL: [100,156,  86,168,  74,182],
+    armR: [100,156, 114,168, 126,182],
+    legL: [100,196,  92,216,  84,236],
+    legR: [100,196, 108,216, 116,236],
+    rot:-78, cx:100, cy:172, ox:22, oy:6,
+  },
+};
+
+// 情绪→姿态硬绑定；空闲时用另外的可爱轮播
+const EMO_POSE = { happy:"happy", sad:"sad", angry:"angry", surprised:"surprised", neutral:null };
+const IDLE_LOOP = ["stand", "wave", "stand", "squat", "sit", "stand", "jump", "lieSide"];
+
+const limbState = {}, limbTarget = {};
+for (const id of LIMB_IDS) { limbState[id] = [...POSES.stand[id]]; limbTarget[id] = [...POSES.stand[id]]; }
+const chrState  = { rot:0, ox:0, oy:0, cx:100, cy:150 };
+const chrTarget = { rot:0, ox:0, oy:0, cx:100, cy:150 };
+
+let currentPoseName = "stand";
+function setPose(name) {
+  const p = POSES[name]; if (!p) return;
+  for (const id of LIMB_IDS) limbTarget[id] = [...p[id]];
+  chrTarget.rot = p.rot || 0;
+  chrTarget.ox  = p.ox  || 0;
+  chrTarget.oy  = p.oy  || 0;
+  chrTarget.cx  = p.cx  || 100;
+  chrTarget.cy  = p.cy  || 150;
+  currentPoseName = name;
+}
+setPose("stand");
+
+let idleFrames = 0, idleIdx = 0;
+const IDLE_FRAMES = 60 * 4; // 大约 4 秒换一个姿态
+function pickPose(emotion) {
+  const forced = EMO_POSE[emotion];
+  if (forced) {
+    if (currentPoseName !== forced) setPose(forced);
+    idleFrames = 0;
+  } else {
+    idleFrames++;
+    if (idleFrames >= IDLE_FRAMES) {
+      idleFrames = 0;
+      idleIdx = (idleIdx + 1) % IDLE_LOOP.length;
+      setPose(IDLE_LOOP[idleIdx]);
+    }
+  }
+}
+
+const pathD = (a) => `M${a[0].toFixed(1)} ${a[1].toFixed(1)} Q${a[2].toFixed(1)} ${a[3].toFixed(1)} ${a[4].toFixed(1)} ${a[5].toFixed(1)}`;
+
+function drawBody(t) {
+  pickPose(currentEmotion);
+  // 插值肢体
+  const kLimb = 0.14;
+  for (const id of LIMB_IDS) {
+    const s = limbState[id], g = limbTarget[id];
+    for (let i = 0; i < 6; i++) s[i] = lerp(s[i], g[i], kLimb);
+    $(id).setAttribute("d", pathD(s));
+  }
+  // 手/脚小圆点跟着肢体末端
+  $("handL").setAttribute("cx", limbState.armL[4].toFixed(1));
+  $("handL").setAttribute("cy", limbState.armL[5].toFixed(1));
+  $("handR").setAttribute("cx", limbState.armR[4].toFixed(1));
+  $("handR").setAttribute("cy", limbState.armR[5].toFixed(1));
+  $("footL").setAttribute("cx", limbState.legL[4].toFixed(1));
+  $("footL").setAttribute("cy", limbState.legL[5].toFixed(1));
+  $("footR").setAttribute("cx", limbState.legR[4].toFixed(1));
+  $("footR").setAttribute("cy", limbState.legR[5].toFixed(1));
+  // 插值整体姿态变换
+  const kChr = 0.09;
+  chrState.rot = lerp(chrState.rot, chrTarget.rot, kChr);
+  chrState.ox  = lerp(chrState.ox,  chrTarget.ox,  kChr);
+  chrState.oy  = lerp(chrState.oy,  chrTarget.oy,  kChr);
+  chrState.cx  = lerp(chrState.cx,  chrTarget.cx,  kChr);
+  chrState.cy  = lerp(chrState.cy,  chrTarget.cy,  kChr);
+  // 呼吸 + 情绪节律 + 头身联动（用 st.tx/roll 让身子跟着头一起微微歪）
+  let breatheY = Math.sin(t / 900) * 1.4;
+  let breatheX = 0;
+  if (currentPoseName === "happy")     breatheY += Math.sin(t / 260) * 1.8;   // 开心一蹦一蹦
+  if (currentPoseName === "sad")       breatheY *= 0.35;                       // 难过时呼吸很浅
+  if (currentPoseName === "angry")     breatheX += Math.sin(t / 55)  * 0.7;    // 生气抖一下
+  if (currentPoseName === "surprised") breatheY -= 1.5;                        // 惊讶时整体上抬
+  if (currentPoseName === "jump")      breatheY += Math.sin(t / 240) * 4;      // 反复起跳
+  if (currentPoseName === "wave") {
+    // 挥手：让右臂末端在 x 方向小幅摆动
+    const swing = Math.sin(t / 180) * 6;
+    limbTarget.armR[4] = 138 + swing;
+    limbTarget.armR[2] = 118 + swing * 0.5;
+  }
+  const swayX = st.tx * 0.35;    // 身体跟头一起微微左右
+  const swayR = -st.roll * 0.15; // 身体跟头一起微微歪
+  $("character").setAttribute("transform",
+    `translate(${(chrState.ox + swayX + breatheX).toFixed(2)} ${(chrState.oy + breatheY).toFixed(2)}) ` +
+    `rotate(${(chrState.rot + swayR).toFixed(2)} ${chrState.cx.toFixed(1)} ${chrState.cy.toFixed(1)})`);
+  requestAnimationFrame(drawBody);
+}
+requestAnimationFrame(drawBody);
 
 /* 空闲小动画（没开摄像头时也活着：眨眼） */
 setInterval(() => {
@@ -960,6 +1176,15 @@ function renderLiveSpeech() {
   $("interimCap").textContent = liveSpeech.interimText
     ? `${finalText ? "\n" : "“"}${liveSpeech.interimText}`
     : (finalText ? "”" : "");
+  scrollCaptionsToEnd();
+}
+
+function scrollCaptionsToEnd() {
+  const el = $("captions");
+  if (!el) return;
+  // 用户手动往上翻时就不强行拉底
+  const nearBottom = el.scrollHeight - el.clientHeight - el.scrollTop < 40;
+  if (nearBottom) el.scrollTop = el.scrollHeight;
 }
 
 function normalizeSpeechText(text) {
@@ -1081,8 +1306,12 @@ function createLiveRecognition(runId) {
     liveSpeech.listening = false;
     $("micBtn").classList.remove("recording");
     if (liveSpeech.manualStop) return;
+    if (liveSpeech.interimText.trim()) {
+      appendLiveFinal(liveSpeech.interimText);
+      S.voiceUsed = true;
+    }
     window.clearTimeout(liveSpeech.restartTimer);
-    liveSpeech.restartTimer = window.setTimeout(startRecognitionCycle, 320);
+    liveSpeech.restartTimer = window.setTimeout(startRecognitionCycle, 60);
   };
   return rec;
 }
@@ -1248,6 +1477,7 @@ async function sendTyped() {
   if (!text) return;
   $("typeInput").value = "";
   $("finalCap").textContent = `"${text}"`;
+  scrollCaptionsToEnd();
   typedAll = typedAll ? `${typedAll} ${text}` : text;
   if (S.sessionId) await api(`/api/sessions/${S.sessionId}/text`, { method: "PATCH", body: { textInput: typedAll } }).catch(() => {});
   await refreshImagery();
@@ -1267,7 +1497,14 @@ const SHARD_SHAPES = [
 ];
 let shardNodes = new Map(); // word -> {g, cx, cy, phase}
 
+function invalidateArtworkNames() {
+  S.nameOptions = null;
+  S.nameOptionsPromise = null;
+  S.nameOptionsVersion += 1;
+}
+
 async function refreshImagery() {
+  invalidateArtworkNames();
   if (!S.sessionId) { renderShards(fallbackShards()); return; }
   $("micHint").textContent = "玻璃里有什么正在成形…";
   const out = await api(`/api/sessions/${S.sessionId}/imagery`, { method: "POST" }).catch(() => null);
@@ -1291,7 +1528,10 @@ function fallbackShards() {
 
 function renderShards(list) {
   const svg = $("shardSky");
-  const slots = [ [110, 90], [330, 120], [200, 210], [90, 240], [370, 250], [250, 60], [160, 300] ];
+  const slots = [
+    [92, 82], [330, 92], [210, 190], [82, 238], [372, 238],
+    [242, 58], [158, 292], [300, 292], [420, 150], [58, 155],
+  ];
   list.forEach((item, i) => {
     if (shardNodes.has(item.word)) return;
     const [cx, cy] = slots[shardNodes.size % slots.length];
@@ -1336,7 +1576,10 @@ function enterBench() {
   const layer = $("benchPieces");
   layer.innerHTML = "";
   benchPieces.length = 0;
-  const startSlots = [ [90, 170], [240, 150], [390, 170], [160, 100], [320, 95], [60, 90], [420, 110] ];
+  const startSlots = [
+    [80, 170], [212, 150], [345, 170], [160, 95], [300, 92],
+    [58, 96], [420, 112], [116, 235], [260, 232], [390, 238],
+  ];
   [...shardNodes.values()].forEach((s2, i) => {
     const [x, y] = startSlots[i % startSlots.length];
     addBenchPiece({ word: s2.item.word, color: s2.item.color, points: s2.points, x, y, rot: s2.rot, scale: s2.scale * 0.82, broken: false });
@@ -1472,6 +1715,7 @@ function enterFurnace() {
   sfx.furnace(13);
   // 音乐：现在就开始后台生成（最长 90s，被熔炉+命名交互遮住）
   if (S.sessionId) api(`/api/sessions/${S.sessionId}/music`, { method: "POST" }).catch(() => {});
+  prefetchArtworkNames();
   // 火焰升起
   const glowE = $("glowE"), flames = $("flames");
   let t0 = performance.now();
@@ -1514,22 +1758,39 @@ function finishHeat() {
 }
 
 /* ==================== 6 命名 ==================== */
-const VESSELS = ["灯", "翼", "星", "舟", "铃", "屿", "雾"];
 function localNames() {
-  const words = S.imagery.map((i) => i.word);
-  const pick = () => words[Math.floor(Math.random() * words.length)] || "此刻";
-  const v = () => VESSELS[Math.floor(Math.random() * VESSELS.length)];
-  return [...new Set([`${pick()}铸成的${v()}`, `${pick()}的${v()}`, `冷却后的${v()}`])].slice(0, 3);
+  return NameForge.generate({
+    words: S.imagery.map((i) => i.word),
+    emotion: S.emotion,
+    count: 3,
+  });
 }
-async function enterName() {
-  gotoScene("sceneName");
-  buildComposition($("artworkPiece"), { gold: true });
-  let names = null;
-  if (S.sessionId) {
-    const out = await api(`/api/sessions/${S.sessionId}/artwork-name`, { method: "POST" }).catch(() => null);
-    if (out && out.ok) names = out.names;
+function prefetchArtworkNames() {
+  if (S.nameOptions && S.nameOptions.length) return Promise.resolve(S.nameOptions);
+  if (S.nameOptionsPromise) return S.nameOptionsPromise;
+  if (!S.sessionId) {
+    S.nameOptions = localNames();
+    return Promise.resolve(S.nameOptions);
   }
-  if (!names || !names.length) names = localNames();
+  const version = S.nameOptionsVersion;
+  S.nameOptionsPromise = api(`/api/sessions/${S.sessionId}/artwork-name`, { method: "POST" })
+    .then((out) => {
+      if (version !== S.nameOptionsVersion) return S.nameOptions || localNames();
+      const names = out && out.ok && Array.isArray(out.names) ? out.names.filter(Boolean) : [];
+      S.nameOptions = names.length ? names : localNames();
+      return S.nameOptions;
+    })
+    .catch(() => {
+      if (version !== S.nameOptionsVersion) return S.nameOptions || localNames();
+      S.nameOptions = localNames();
+      return S.nameOptions;
+    })
+    .finally(() => {
+      if (version === S.nameOptionsVersion) S.nameOptionsPromise = null;
+    });
+  return S.nameOptionsPromise;
+}
+function renderNameOptions(names) {
   const box = $("nameChips");
   box.innerHTML = "";
   names.forEach((n) => {
@@ -1545,10 +1806,21 @@ async function enterName() {
     };
     box.appendChild(chip);
   });
+}
+function enterName() {
+  gotoScene("sceneName");
+  buildComposition($("artworkPiece"), { gold: true });
+  const names = S.nameOptions && S.nameOptions.length ? S.nameOptions : localNames();
+  renderNameOptions(names);
+  if (!S.nameOptions && S.nameOptionsPromise) {
+    S.nameOptionsPromise.then((readyNames) => {
+      if (currentScene === "sceneName" && !S.artworkName) renderNameOptions(readyNames);
+    }).catch(() => {});
+  }
   $("customName").oninput = () => {
     const v = $("customName").value.trim();
     if (v) {
-      box.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
+      $("nameChips").querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
       S.artworkName = v;
       $("nameConfirmBtn").disabled = false;
     }
