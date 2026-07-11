@@ -413,6 +413,7 @@
 
 <script src="voice-input.js"></script>
 <script src="music-engine.js"></script>
+<script src="name-forge.js"></script>
 <script type="module">
 import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
 
@@ -1445,12 +1446,12 @@ function finishHeat() {
 }
 
 /* ==================== 6 命名 ==================== */
-const VESSELS = ["灯", "翼", "星", "舟", "铃", "屿", "雾"];
 function localNames() {
-  const words = S.imagery.map((i) => i.word);
-  const pick = () => words[Math.floor(Math.random() * words.length)] || "此刻";
-  const v = () => VESSELS[Math.floor(Math.random() * VESSELS.length)];
-  return [...new Set([`${pick()}铸成的${v()}`, `${pick()}的${v()}`, `冷却后的${v()}`])].slice(0, 3);
+  return NameForge.generate({
+    words: S.imagery.map((i) => i.word),
+    emotion: S.emotion,
+    count: 3,
+  });
 }
 function prefetchArtworkNames() {
   if (S.nameOptions && S.nameOptions.length) return Promise.resolve(S.nameOptions);
