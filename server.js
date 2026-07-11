@@ -461,18 +461,39 @@ async function handleTranscribeProxy(req, res) {
 
   const contentType = req.headers["content-type"] || "";
   const body = await readRawBody(req);
-  const response = await fetch(`${LLM_BASE_URL}/audio/transcriptions`, {
-    method: "POST",
-    headers: { "Content-Type": contentType, Authorization: `Bearer ${LLM_API_KEY}` },
-    body,
-    signal: AbortSignal.timeout(60000),
-  });
-  const text = await response.text();
-  res.writeHead(response.status, {
-    "Content-Type": response.headers.get("content-type") || "application/json",
-    "Access-Control-Allow-Origin": "*",
-  });
-  res.end(text);
+  try {
+    const response = await fetch(`${LLM_BASE_URL}/audio/transcriptions`, {
+      method: "POST",
+      headers: { "Content-Type": contentType, Authorization: `Bearer ${LLM_API_KEY}` },
+      body,
+      signal: AbortSignal.timeout(60000),
+    });
+    const text = await response.text();
+
+    if (!response.ok) {
+      let upstream = null;
+      try { upstream = JSON.parse(text); } catch (_) {}
+      sendJson(res, response.status >= 500 ? 503 : response.status, {
+        ok: false,
+        fallback: true,
+        error: upstream?.error?.message || upstream?.error || text.slice(0, 200) || "语音转写上游服务暂不可用",
+        upstreamCode: upstream?.error?.code || null,
+      });
+      return;
+    }
+
+    res.writeHead(response.status, {
+      "Content-Type": response.headers.get("content-type") || "application/json",
+      "Access-Control-Allow-Origin": "*",
+    });
+    res.end(text);
+  } catch (error) {
+    sendJson(res, 503, {
+      ok: false,
+      fallback: true,
+      error: error.name === "TimeoutError" ? "语音转写上游超时" : "语音转写上游服务暂不可用",
+    });
+  }
 }
 
 async function handleApi(req, res, url) {
@@ -516,7 +537,9 @@ async function handleApi(req, res, url) {
     };
 
     if (event.isFinal) {
-      record.videoTranscript = trimText([record.videoTranscript, text].filter(Boolean).join(" "));
+      record.videoTranscript = body.replace
+        ? text
+        : trimText([record.videoTranscript, text].filter(Boolean).join(" "));
       record.raw.interimTranscript = "";
     } else {
       record.raw.interimTranscript = text;
