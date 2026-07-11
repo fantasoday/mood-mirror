@@ -93,7 +93,28 @@
   #mirrorFrame .live { font-size: 10px; color: var(--primary); letter-spacing: 2px; margin: 2px 0 4px 6px; }
   #mirrorFrame .live .dot { color: #E86A5E; }
   #mirrorFrame .note { font-size: 9px; color: #A3C4D4; text-align: center; margin: 4px 0; }
-  #permCard { text-align: center; max-width: 300px; }
+  #permCard { text-align: center; max-width: 320px; }
+  #permCard .perm-title {
+    margin: 0 0 8px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  #permCard .perm-copy {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: var(--ink);
+  }
+  #permCard .perm-copy small {
+    display: block;
+    margin-top: 8px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+  }
   #guessWrap { display: none; flex-direction: column; align-items: center; gap: 14px; }
   #guessWrap.show { display: flex; }
   #mirrorBtns { display: flex; gap: 12px; }
@@ -135,7 +156,7 @@
     -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
   }
   #captions:empty::before {
-    content: "把想说的说出来 · 会一段一段留在这里";
+    content: "麦克风开启后，你说的话会实时留在这里 · 也可以直接打字";
     color: #B4CBD6; font-size: 12.5px; letter-spacing: 1px;
   }
   #captions::-webkit-scrollbar { width: 4px; }
@@ -519,10 +540,14 @@
     </div>
 
     <div class="card" id="permCard">
-      <p style="font-size:14.5px;line-height:1.8">这面玻璃想映出你的样子。<br/>画面只在你的设备上，不会上传。</p>
+      <p class="perm-title">接下来，可以一边被镜像陪伴，一边把心里话说出来。</p>
+      <p class="perm-copy">
+        开启摄像头后，玻璃只在本地捕捉你的表情和姿态；开启麦克风后，你的倾诉会实时转写成文字。
+        <small>摄像头画面不会上传。麦克风权限会在进入倾诉时请求，也可以不用摄像头，直接用麦克风或文字继续。</small>
+      </p>
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center">
-        <button class="btn" style="padding:13px 34px;font-size:15px" id="camBtn">让它看见我</button>
-        <button class="link" id="skipCamBtn">不开摄像头，直接进入 →</button>
+        <button class="btn" style="padding:13px 28px;font-size:15px" id="camBtn">开启摄像头和麦克风，开始倾诉</button>
+        <button class="link" id="skipCamBtn">暂不开摄像头，直接用麦克风倾诉 →</button>
       </div>
     </div>
 
@@ -556,7 +581,7 @@
           <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><line x1="12" y1="18" x2="12" y2="21"/>
         </svg>
       </button>
-      <div class="hint" id="micHint">进入后会自动倾听 · 说完点麦克风结束</div>
+      <div class="hint" id="micHint">浏览器会请求麦克风权限 · 说完点麦克风结束</div>
       <button class="link" id="typeToggle">直接打字也可以</button>
       <div id="typeWrap">
         <input id="typeInput" placeholder="把想说的写在这里，回车放进空气里"/>
@@ -1147,32 +1172,26 @@ const GUESS_TEXT = {
 
 $("camBtn").onclick = async () => {
   $("camBtn").disabled = true;
-  $("camBtn").textContent = "玻璃正在亮起…";
+  $("camBtn").textContent = "正在开启镜像与倾诉…";
   try {
     engine = new EmotionEngine({ video, onStatus: () => {}, onFrame, smoothing: 0.4 });
     await engine.init();
     S.cameraOn = true;
     $("permCard").style.display = "none";
-    // 采样 6 秒后给试探性猜测
     emotionCounts.clear();
-    setTimeout(() => {
-      let best = "neutral", n = 0, total = 0;
-      for (const [k, v] of emotionCounts) { total += v; if (v > n) { n = v; best = k; } }
-      const confident = total > 20 && n / total > 0.4;
-      const key = confident ? best : "neutral";
-      S.mirrorGuess = EMOTION_META[key]?.label || "平静";
-      $("guessBubble").textContent = (confident ? "" : "我不太确定……") + GUESS_TEXT[key];
-      $("guessWrap").classList.add("show");
-      if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { mirrorGuess: S.mirrorGuess, inputMode: "video+text" } }).catch(() => {});
-    }, 6000);
+    if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { inputMode: "video+voice" } }).catch(() => {});
+    enterTalk();
   } catch (err) {
-    $("permCard").querySelector("p").innerHTML = "玻璃有点模糊，没关系——<br/>你可以直接告诉我。";
-    $("camBtn").style.display = "none";
-    $("skipCamBtn").textContent = "直接进入 →";
-    $("camBtn").disabled = false;
+    S.cameraOn = false;
+    if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { inputMode: "voice-or-text" } }).catch(() => {});
+    $("camBtn").textContent = "摄像头没打开，先听你说";
+    window.setTimeout(enterTalk, 350);
   }
 };
-$("skipCamBtn").onclick = () => enterTalk();
+$("skipCamBtn").onclick = () => {
+  if (S.sessionId) api(`/api/sessions/${S.sessionId}/meta`, { method: "PATCH", body: { inputMode: "voice-or-text" } }).catch(() => {});
+  enterTalk();
+};
 $("confirmBtn").onclick = () => enterTalk();
 $("denyBtn").onclick = () => enterTalk();
 
@@ -1180,10 +1199,12 @@ $("denyBtn").onclick = () => enterTalk();
 function enterTalk() {
   // 镜子缩小挪到左上角，继续陪伴
   $("mirrorDock").appendChild($("mirrorFrame"));
-  $("mirrorFrame").querySelector(".live").textContent = S.cameraOn ? "● 我在听" : "● 镜像";
-  $("mirrorNote").textContent = S.cameraOn ? "画面不上传" : "";
+  $("mirrorFrame").querySelector(".live").textContent = S.cameraOn ? "● 镜像陪你倾诉" : "● 倾诉中";
+  $("mirrorNote").textContent = S.cameraOn ? "画面只在本地捕捉 · 不上传" : "未开启摄像头 · 可以继续说";
   gotoScene("sceneTalk");
-  typeLine($("spiritLine"), "说说吧，你在想什么。想到哪说到哪，我都在听。");
+  typeLine($("spiritLine"), S.cameraOn
+    ? "摄像头会在本地捕捉你的表情，麦克风会把你的倾诉实时写下来。想到哪说到哪，我都在听。"
+    : "没关系，我们先不用摄像头。麦克风会把你的倾诉实时写下来；不想说时，也可以直接打字。");
   startContinuousListening();
 }
 function typeLine(el, text, done) {
@@ -1467,7 +1488,9 @@ function startContinuousListening() {
   liveSpeech.manualStop = false;
   liveSpeech.finishing = false;
   $("micBtn").disabled = false;
-  startAudioCapture().catch(() => {});
+  startAudioCapture().catch(() => {
+    $("micHint").textContent = "麦克风权限暂未开启；可以继续授权，或直接打字。";
+  });
   startRecognitionCycle();
 }
 
