@@ -103,7 +103,9 @@
   /* ================= 3 倾诉 ================= */
   #sceneTalk { padding: 18px; }
   #emotionPill {
-    align-self: center; display: none; align-items: center; gap: 8px;
+    /* 数据后台照常跑，UI 隐藏——只做背后驱动，不打扰用户；档案馆里再呈现 */
+    display: none !important;
+    align-self: center; align-items: center; gap: 8px;
     padding: 6px 12px; margin-bottom: 6px;
     background: rgba(250,253,255,.9); border-radius: 999px;
     box-shadow: 0 6px 18px rgba(90,140,170,.14), inset 0 0 0 1px rgba(159,198,216,.35);
@@ -264,7 +266,7 @@
   #colWorkbench {
     position: relative; flex: 1; width: 100%;
     overflow-y: auto; overflow-x: hidden;
-    padding: 12px 0 110px;
+    padding: 12px 0 150px;
     -webkit-overflow-scrolling: touch;
   }
   /* 顶部小字提示，替代卡片 */
@@ -327,11 +329,18 @@
     color: var(--ink-soft); margin-top: 3px;
   }
   #sceneCollection .col-foot {
-    position: absolute; bottom: 18px; left: 0; right: 0; z-index: 4;
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 90;
     display: flex; justify-content: center; gap: 12px;
-    padding: 14px 20px;
-    background: linear-gradient(180deg, transparent, rgba(237,246,250,0.85) 55%);
+    padding: 34px 20px 30px;
+    /* 从透明渐变到浓的背景色，制造"淡出"缓冲，让最后一行罐子不会突兀被切 */
+    background: linear-gradient(180deg, rgba(237,246,250,0) 0%, rgba(219,235,242,0.92) 45%, rgba(201,222,235,1) 100%);
+    pointer-events: none;
   }
+  #sceneCollection .col-foot > * { pointer-events: auto; }
+  /* 藏品间不显示底部安全线（结语才需要，避免和"回到门口"叠住）；
+     顶部的音效按钮也让位，别挡到右上角的罐子。 */
+  body[data-scene="sceneCollection"] #safety { display: none; }
+  body[data-scene="sceneCollection"] #muteBtn { top: 22px; right: 14px; opacity: 0.55; }
 
   /* ---- 回忆弹窗（淡蓝） ---- */
   #memoMask {
@@ -344,7 +353,7 @@
   @keyframes memoIn { from { opacity: 0; } to { opacity: 1; } }
   #memoBox {
     position: relative; width: min(88vw, 360px);
-    aspect-ratio: 1 / 1;
+    max-height: min(88vh, 640px); min-height: 340px;
     background: linear-gradient(180deg, #FBFDFF 0%, #E9F3F8 100%);
     border-radius: 22px;
     box-shadow: 0 30px 60px rgba(30,60,85,0.35),
@@ -354,6 +363,7 @@
     font-family: -apple-system, "PingFang SC", "Noto Serif SC", serif;
     color: var(--ink);
     animation: memoBoxIn .5s cubic-bezier(.2,.9,.3,1.2) both;
+    overflow: hidden; /* box 自己不滚，body 内部滚 */
   }
   @keyframes memoBoxIn { from { opacity: 0; transform: translateY(20px) scale(.94); } to { opacity: 1; transform: none; } }
   #memoBox::before {
@@ -367,6 +377,7 @@
     font-size: 22px; color: var(--ink-soft); line-height: 1; z-index: 2;
   }
   #memoHead {
+    flex: 0 0 auto; /* 头部不被内容挤压 */
     text-align: center; padding-bottom: 10px;
     border-bottom: 1px dashed rgba(91,155,181,0.28);
   }
@@ -376,14 +387,24 @@
   }
   #memoHead .h-en {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 9.5px; letter-spacing: 4px; color: var(--ink-soft);
-    margin-top: 5px;
+    font-size: 9.5px; letter-spacing: 2.8px; color: var(--ink-soft);
+    margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #memoBody {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    gap: 14px; padding: 10px 4px; min-height: 0;
+    flex: 1 1 auto; display: flex;
+    align-items: flex-start; /* 顶对齐，长内容也不会顶穿头部 */
+    justify-content: center; gap: 14px;
+    padding: 12px 4px; min-height: 0;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
-  #memoJarSlot { flex: 0 0 auto; filter: drop-shadow(0 10px 14px rgba(58,90,120,0.28)); }
+  #memoBody::-webkit-scrollbar { width: 4px; }
+  #memoBody::-webkit-scrollbar-thumb { background: rgba(91,155,181,.28); border-radius: 4px; }
+  #memoJarSlot {
+    flex: 0 0 auto;
+    filter: drop-shadow(0 10px 14px rgba(58,90,120,0.28));
+    position: sticky; top: 0; /* 长内容滚动时罐子留在视野 */
+  }
   #memoJarSlot svg { display: block; }
   #memoInfo { flex: 1; min-width: 0; }
   #memoInfo .m-name {
@@ -399,7 +420,23 @@
     font-size: 12.5px; line-height: 1.7; color: var(--ink);
     padding-top: 8px; border-top: 1px dashed rgba(91,155,181,0.28);
   }
+  /* 当时的自己 · LLM 一句话总结（档案馆里的时间胶囊） */
+  #memoInfo .m-memory {
+    margin-top: 10px; padding: 8px 10px;
+    background: rgba(212, 165, 116, 0.08);
+    border-left: 2px solid rgba(212, 165, 116, 0.55);
+    border-radius: 4px;
+    font-family: 'Caveat', 'PingFang SC', cursive;
+    font-size: 14px; line-height: 1.55; color: #6D5A3D;
+  }
+  #memoInfo .m-memory[hidden] { display: none; }
+  #memoInfo .m-memory .label {
+    display: block; font-family: 'Cormorant Garamond', serif;
+    font-size: 9.5px; letter-spacing: 3px; color: #B39561;
+    margin-bottom: 3px; text-transform: uppercase;
+  }
   #memoFoot {
+    flex: 0 0 auto; /* 底部黑胶固定不被 body 挤 */
     display: flex; align-items: center; gap: 12px;
     padding-top: 10px; border-top: 1px dashed rgba(91,155,181,0.28);
   }
@@ -413,6 +450,21 @@
     box-shadow: 0 6px 12px rgba(30,60,85,0.35),
                 inset 0 0 8px rgba(255,255,255,0.08);
     animation: spin 6s linear infinite;
+    animation-play-state: paused; /* 默认不转；有音乐可播时才转 */
+    cursor: default;
+    transition: box-shadow .3s ease, transform .2s ease;
+  }
+  .vinyl.playable { cursor: pointer; }
+  .vinyl.playable:hover { box-shadow: 0 8px 18px rgba(212,165,116,0.5), inset 0 0 8px rgba(255,255,255,0.12); }
+  .vinyl.playing { animation-play-state: running; }
+  .vinyl.playable::before { transition: background .2s ease; }
+  .vinyl.playable:not(.playing) {
+    /* 播放三角形叠加，示意可点 */
+    background:
+      linear-gradient(135deg, transparent 42%, rgba(212,165,116,0.85) 42% 58%, transparent 58%),
+      radial-gradient(circle at center, var(--gold) 0 12%, transparent 12.5%),
+      repeating-radial-gradient(circle at center, #1a1a1a 0 1.5px, #262626 1.5px 3px),
+      #0a0a0a;
   }
   .vinyl::before {
     content: ''; position: absolute; top: 50%; left: 50%;
@@ -768,14 +820,15 @@
         <div class="m-name" id="memoName">静水</div>
         <div class="m-meta" id="memoMeta">N° 01 · 2026·07·11 · 平静</div>
         <div class="m-quote" id="memoQuote">「那一刻，你把它从心里取了出来。」</div>
+        <div class="m-memory" id="memoMemory" hidden></div>
       </div>
     </div>
     <div id="memoFoot">
-      <div class="vinyl" aria-hidden="true"></div>
+      <div class="vinyl" id="memoVinyl" role="button" tabindex="0" aria-label="播放当时的音乐"></div>
       <div class="m-song">
         <div class="s-label">B G M  ·  当 时 的 声 音</div>
         <div class="s-title" id="memoSong">《 未 命 名 · Track 01 》</div>
-        <div class="s-hint">— 黑胶正在旋转 ·   声音将在稍后接入 —</div>
+        <div class="s-hint" id="memoSongHint">— 黑胶正在旋转 ·   声音将在稍后接入 —</div>
       </div>
       <div class="m-eq" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
@@ -806,6 +859,7 @@ const S = {
   nameOptions: null,
   nameOptionsPromise: null,
   nameOptionsVersion: 0,
+  finalSummary: "",      // 档案馆里的"当时的自己"总结
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -838,6 +892,7 @@ const api = async (path, opts = {}) => {
 };
 
 let currentScene = "sceneGate";
+document.body.dataset.scene = currentScene;
 function gotoScene(id) {
   const from = $(currentScene);
   from.classList.add("leaving");
@@ -845,6 +900,7 @@ function gotoScene(id) {
     from.classList.remove("active", "leaving");
     $(id).classList.add("active");
     currentScene = id;
+    document.body.dataset.scene = id; // 让 CSS 能按场景切换 safety/muteBtn 等固定元素
   }, 550);
 }
 
@@ -2302,6 +2358,12 @@ $("nameConfirmBtn").onclick = async () => {
   $("musicRow").classList.add("show");
   $("toCollectionBtn").style.display = "inline-block";
   pollMusic();
+  // 后台异步生成"当时的自己"总结——档案馆的回忆卡要用
+  if (S.sessionId) {
+    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "POST", body: {} })
+      .then((out) => { if (out && out.ok) S.finalSummary = out.summary; })
+      .catch(() => {});
+  }
 };
 
 /* ---- 音乐轮询与播放 ---- */
@@ -2526,6 +2588,7 @@ function buildCollection() {
       song: musicUrl ? ($("musicTitle").textContent || "《 今日 · 一段声音 》") : "《 今日 · 尚未成形 》",
       today: true,
       comp: realComp,
+      memory: S.finalSummary || "",  // "当时的自己"总结；若还没生成，openMemo 里再兜底拉一次
     });
     $("colTodayNote").innerHTML = `《 ${S.artworkName} 》 已 入 藏 · 点 开 回 忆 当 时`;
   }
@@ -2553,16 +2616,80 @@ function openMemo(m) {
   $("memoQuote").textContent = `「${m.quote}」`;
   $("memoSong").textContent = m.song;
 
+  // "当时的自己"：只在有 memory 时显示；今日罐子若还没生成，兜底拉一次
+  const memoryEl = $("memoMemory");
+  const paintMemory = (text) => {
+    if (text && text.trim()) {
+      memoryEl.innerHTML = `<span class="label">当 时 的 自 己</span>${text.trim()}`;
+      memoryEl.hidden = false;
+    } else {
+      memoryEl.hidden = true;
+      memoryEl.innerHTML = "";
+    }
+  };
+  paintMemory(m.memory);
+  if (m.today && !m.memory && S.sessionId) {
+    // 后台补拉一次；若已缓存 server 会直接返回
+    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "GET" })
+      .then((out) => {
+        if (out && out.ok && out.summary) {
+          S.finalSummary = out.summary;
+          m.memory = out.summary;
+          paintMemory(out.summary);
+        }
+      })
+      .catch(() => {});
+  }
+
   // 用一个稳定容器替换罐子内容，避免 outerHTML 丢引用
   const slot = $("memoJarSlot");
   slot.innerHTML = renderJar({ comp: m.comp, size: 130 });
 
+  // 音乐：今日 memo + 结语页已生成 musicUrl 时才真正可播；其余就当装饰
+  const vinyl = $("memoVinyl");
+  const hint = $("memoSongHint");
+  memoAudioUrl = (m.today && musicUrl) ? musicUrl : null;
+  vinyl.classList.toggle("playable", !!memoAudioUrl);
+  vinyl.classList.remove("playing");
+  if (memoAudioUrl) {
+    hint.textContent = "— 点 黑 胶 播 放 · 再 点 一 次 暂 停 —";
+  } else if (m.today) {
+    hint.textContent = "— 声 音 还 在 烧 制 ·   稍 后 再 来 听 —";
+  } else {
+    hint.textContent = "— 示 例 藏 品 · 无 声 音 记 录 —";
+  }
+
   $("memoMask").classList.add("show");
 }
-function closeMemo() { $("memoMask").classList.remove("show"); }
+function closeMemo() {
+  $("memoMask").classList.remove("show");
+  // 关闭弹窗时停止播放，避免声音跟到藏品间之外
+  if (memoAudio) { try { memoAudio.pause(); } catch (_) {} memoAudio = null; }
+  $("memoVinyl")?.classList.remove("playing");
+}
 $("memoClose").onclick = closeMemo;
 $("memoMask").addEventListener("click", (e) => { if (e.target === $("memoMask")) closeMemo(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("memoMask").classList.contains("show")) closeMemo(); });
+
+/* memo 黑胶播放：把结语页生成的 musicUrl 绑到黑胶点击 */
+let memoAudio = null;
+let memoAudioUrl = null;
+function toggleMemoAudio() {
+  if (!memoAudioUrl) return;
+  const vinyl = $("memoVinyl");
+  if (memoAudio && !memoAudio.paused) {
+    memoAudio.pause();
+    vinyl.classList.remove("playing");
+    return;
+  }
+  // 复用 music-engine 的 play，返回 audio 元素；结束后自动停旋转
+  memoAudio = sfx.play(memoAudioUrl, () => { vinyl.classList.remove("playing"); });
+  vinyl.classList.add("playing");
+}
+$("memoVinyl").onclick = toggleMemoAudio;
+$("memoVinyl").addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && memoAudioUrl) { e.preventDefault(); toggleMemoAudio(); }
+});
 
 /* 命名场景 → 进入藏品间 */
 $("toCollectionBtn").onclick = () => {
@@ -2585,6 +2712,7 @@ if (new URLSearchParams(location.search).get("dev") === "collection") {
     document.querySelectorAll(".scene").forEach((s) => s.classList.remove("active"));
     $("sceneCollection").classList.add("active");
     currentScene = "sceneCollection";
+    document.body.dataset.scene = "sceneCollection"; // 让 safety/muteBtn 藏品间 CSS 规则也生效
   });
 }
 </script>
