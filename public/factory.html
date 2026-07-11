@@ -2401,6 +2401,7 @@ if (new URLSearchParams(location.search).get("dev") === "collection") {
     document.querySelectorAll(".scene").forEach((s) => s.classList.remove("active"));
     $("sceneCollection").classList.add("active");
     currentScene = "sceneCollection";
+    document.body.dataset.scene = "sceneCollection"; // 让 safety/muteBtn 藏品间 CSS 规则也生效
   });
 }
 </script>
