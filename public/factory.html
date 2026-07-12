@@ -84,10 +84,10 @@
   /* ================= 1 门口 ================= */
   #sceneGate .bubble { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 280px; opacity: 0; transition: opacity 1.2s ease; }
   #sceneGate .bubble.show { opacity: 1; }
-  #gateArt { position: absolute; bottom: 76px; width: 100%; }
+  #gateArt { position: absolute; bottom: 200px; width: 100%; }
   #gateActions {
-    position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
     opacity: 0; transition: opacity 1.2s ease;
   }
   #gateActions.show { opacity: 1; }
@@ -2070,7 +2070,7 @@ function playBenchDemo() {
       layer.style.transition = "opacity .7s ease";
       layer.style.opacity = "0";
       setTimeout(() => layer.remove(), 750);
-      say(`该你了。这些，是刚才压在你心里的东西。<br/><small>点两下敲碎，或直接拖进去——都听你的</small>`);
+      say(`该你了。这些，是刚才压在你心里的东西。<br/><small>直接拖进画布拼成形状，也可以点两下先敲碎再用——都听你的</small>`);
       resolve();
     }
     skip.addEventListener("pointerdown", (e) => { e.stopPropagation(); finish(); });
@@ -2127,7 +2127,7 @@ function showDragGuide() {
     <polygon class="guide-arrow" points="0,-5 10,0 0,5" transform="translate(${x2} ${y2}) rotate(${ang.toFixed(0)})"/>
     <g transform="translate(${x2} ${y2 + 26})">
       <rect class="guide-tip-bg" x="-92" y="-14" width="184" height="24" rx="12"/>
-      <text class="guide-tip" y="3">把碎片拖进来，拼成你的形状</text>
+      <text class="guide-tip" y="3">把它们拖进来，拼成你的形状</text>
     </g>`;
   $("benchSvg").appendChild(g);
   guide.drag = g;
