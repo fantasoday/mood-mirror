@@ -562,8 +562,8 @@
       <svg id="faceSvg" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <filter id="rf" x="-25%" y="-25%" width="150%" height="150%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
-            <feDisplacementMap in="SourceGraphic" in2="n" scale="3"/>
+            <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
           </filter>
         </defs>
         <g filter="url(#rf)">
@@ -626,7 +626,7 @@
     </div>
     <div id="talkTop">
       <div id="mirrorDock"></div>
-      <div class="bubble" id="spiritSay"><span id="spiritLine"></span><div class="who">—— 玻璃精灵</div></div>
+      <div class="bubble" id="spiritSay"><span id="spiritLine"></span></div>
     </div>
     <svg id="shardSky" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="captions"><span id="finalCap"></span><span class="interim" id="interimCap"></span></div>
@@ -860,6 +860,7 @@ const S = {
   nameOptionsPromise: null,
   nameOptionsVersion: 0,
   finalSummary: "",      // 档案馆里的"当时的自己"总结
+  voiceRecordings: [],   // [{blob, at}] 每段倾诉的原始录音，可多段
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -1637,6 +1638,17 @@ async function finishListening() {
 
   const fallbackTranscript = fullLiveTranscript();
   const audioBlob = await stopAudioCapture();
+  // 记录声音：每段录音都保留（可多段），并异步存到本地服务
+  if (audioBlob && audioBlob.size > 1200) {
+    S.voiceRecordings.push({ blob: audioBlob, at: Date.now() });
+    if (S.sessionId) {
+      fetch(`/api/sessions/${S.sessionId}/audio`, {
+        method: "POST",
+        headers: { "Content-Type": audioBlob.type || "audio/webm" },
+        body: audioBlob,
+      }).catch(() => {});
+    }
+  }
   let finalTranscript = fallbackTranscript;
   let transcriptSource = "webspeech-live";
 
@@ -1658,7 +1670,6 @@ async function finishListening() {
     return;
   }
 
-  $("micBtn").disabled = true;
   $("micHint").textContent = "我听见了，正在把它变成玻璃碎片…";
   queueTranscriptUpdate(finalTranscript, {
     isFinal: true,
@@ -1668,9 +1679,20 @@ async function finishListening() {
   });
   await liveSpeech.saveQueue;
   await refreshImagery();
+  // 不禁用按钮：整理完随时可再点，继续补充倾诉（可反复录制）
+  liveSpeech.finishing = false;
+  $("micHint").textContent = "想到新的随时再点麦克风继续说 · 或去工作台";
 }
 
-$("micBtn").onclick = finishListening;
+$("micBtn").onclick = () => {
+  if (liveSpeech.finishing) return;
+  if (liveSpeech.listening || liveSpeech.recognition) {
+    finishListening();          // 正在听 → 结束这一段
+  } else {
+    liveSpeech.manualStop = false;   // 已结束 → 再点重新开始听
+    startContinuousListening();
+  }
+};
 
 /* ---- 打字输入 ---- */
 let typedAll = "";
