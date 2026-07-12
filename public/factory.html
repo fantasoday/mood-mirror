@@ -107,6 +107,18 @@
   #mirrorFrame .live .dot { color: #E86A5E; }
   #mirrorFrame .note { font-size: 12px; color: #6E96AE; text-align: center; margin: 6px 0; letter-spacing: .5px; }
   #permCard { text-align: center; max-width: 320px; }
+  .perm-list {
+    margin: 14px auto 0; max-width: 268px;
+    display: flex; flex-direction: column; gap: 9px; text-align: left;
+  }
+  .perm-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-soft);
+    background: rgba(255,255,255,.55); border-radius: 12px; padding: 9px 12px;
+  }
+  .perm-row span { text-wrap: balance; }
+  .perm-row b { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  .perm-ico { width: 22px; height: 22px; flex: none; }
   #permCard .perm-title {
     margin: 0 0 8px;
     font-size: 16px;
@@ -114,19 +126,6 @@
     color: var(--ink);
     font-weight: 600;
     letter-spacing: 1px;
-  }
-  #permCard .perm-copy {
-    margin: 0;
-    font-size: 13.5px;
-    line-height: 1.85;
-    color: var(--ink);
-  }
-  #permCard .perm-copy small {
-    display: block;
-    margin-top: 8px;
-    font-size: 11.5px;
-    color: var(--ink-soft);
-    line-height: 1.7;
   }
   #guessWrap { display: none; flex-direction: column; align-items: center; gap: 14px; }
   #guessWrap.show { display: flex; }
@@ -641,11 +640,25 @@
 
     <div class="card" id="permCard">
       <p class="perm-title">接下来，可以一边被镜像陪伴，一边把心里话说出来。</p>
-      <p class="perm-copy">
-        开启摄像头后，玻璃只在本地捕捉你的表情和姿态；开启麦克风后，你的倾诉会实时转写成文字。
-        <small>摄像头画面不会上传。麦克风权限会在进入倾诉时请求，也可以不用摄像头，直接用麦克风或文字继续。</small>
-      </p>
-      <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center">
+      <div class="perm-list">
+        <div class="perm-row">
+          <svg class="perm-ico" viewBox="0 0 24 24" fill="none" stroke="#5E86A0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="7" width="13" height="10" rx="2.5"/>
+            <path d="M15.5 10.5 L21 8 V16 L15.5 13.5"/>
+          </svg>
+          <span>画面只在设备上实时处理，<b>不会上传</b></span>
+        </div>
+        <div class="perm-row">
+          <svg class="perm-ico" viewBox="0 0 24 24" fill="none" stroke="#5E86A0" stroke-width="1.8" stroke-linecap="round">
+            <rect x="9" y="3.5" width="6" height="10.5" rx="3" fill="#DCEAF3" stroke="#5E86A0"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/>
+            <line x1="12" y1="18" x2="12" y2="20.5"/>
+          </svg>
+          <span>倾诉实时转写，声音只保存在<b>你的本机</b></span>
+        </div>
+      </div>
+      <p style="font-size:12.5px;line-height:1.7;color:var(--ink-soft);margin-top:10px">随时可以跳过或中途关闭，这里由你说了算。</p>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;align-items:center">
         <button class="btn" style="padding:13px 28px;font-size:15px" id="camBtn">开启摄像头和麦克风，开始倾诉</button>
         <button class="link" id="skipCamBtn">暂不开摄像头，直接用麦克风倾诉 →</button>
       </div>
@@ -1309,6 +1322,15 @@ $("camBtn").onclick = async () => {
   $("camBtn").disabled = true;
   $("camBtn").textContent = "正在开启镜像与倾诉…";
   try {
+    // 一次性请求摄像头+麦克风（单个授权弹窗）；随即释放，后续引擎/录音直接复用已授予的权限
+    try {
+      const warm = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      warm.getTracks().forEach((t) => t.stop());
+    } catch (_) {
+      // 麦克风被拒不挡镜像：单独再试摄像头，语音入口自然降级为打字
+      const camOnly = await navigator.mediaDevices.getUserMedia({ video: true });
+      camOnly.getTracks().forEach((t) => t.stop());
+    }
     engine = new EmotionEngine({ video, onStatus: () => {}, onFrame, smoothing: 0.4 });
     await engine.init();
     S.cameraOn = true;
@@ -1630,17 +1652,19 @@ function startContinuousListening() {
 }
 
 async function startAudioCapture() {
-  if (liveSpeech.recorder || liveSpeech.audioStream) return;
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-  });
+  if (liveSpeech.recorder) return;
+  // 麦克风流保持常开（跨多段录音复用），避免每段都重新 getUserMedia 的延迟/弹窗
+  if (!liveSpeech.audioStream || !liveSpeech.audioStream.getAudioTracks().some((t) => t.readyState === "live")) {
+    liveSpeech.audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+    });
+  }
   const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
     ? "audio/webm;codecs=opus"
     : (MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "");
-  liveSpeech.audioStream = stream;
   liveSpeech.audioChunks = [];
   liveSpeech.recordingStartedAt = performance.now();
-  liveSpeech.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  liveSpeech.recorder = new MediaRecorder(liveSpeech.audioStream, mime ? { mimeType: mime } : undefined);
   liveSpeech.recorder.ondataavailable = (event) => {
     if (event.data && event.data.size) liveSpeech.audioChunks.push(event.data);
   };
@@ -1658,7 +1682,6 @@ function stopAudioCapture() {
   return new Promise((resolve) => {
     const recorder = liveSpeech.recorder;
     if (!recorder) {
-      stopAudioTracks();
       resolve(null);
       return;
     }
@@ -1670,7 +1693,7 @@ function stopAudioCapture() {
         : null;
       liveSpeech.recorder = null;
       liveSpeech.audioChunks = [];
-      stopAudioTracks();
+      // 不关麦克风流：留给下一段复用；离开倾诉页时由 stopAudioTracks 统一释放
       resolve(blob && blob.size > 1000 ? blob : null);
     };
 
@@ -2297,29 +2320,192 @@ $("toFurnaceBtn").onclick = () => {
 };
 
 /* ==================== 5 熔炉 ==================== */
+/* ==== 几何工具：凸包 + 平滑闭合曲线（把碎片熔成一件完整器物） ==== */
+function convexHull(points) {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+function smoothClosed(pts) {
+  const n = pts.length;
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  let m = mid(pts[0], pts[1 % n]);
+  let d = `M${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+  for (let i = 1; i <= n; i++) {
+    const p = pts[i % n], m2 = mid(p, pts[(i + 1) % n]);
+    d += ` Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${m2[0].toFixed(1)} ${m2[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+
+let compSeq = 0;
 function buildComposition(targetG, { gold = false } = {}) {
   targetG.innerHTML = "";
-  S.composition.forEach((p) => {
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.rot}) scale(${p.scale})`);
-    g.innerHTML = `<polygon points="${p.points}" fill="${gold ? p.color : "#E8A468"}" fill-opacity="${gold ? 0.92 : 0.85}" stroke="${gold ? "#FFF" : "#FFE7C2"}" stroke-opacity=".7" stroke-width="1.4"/>`;
-    targetG.appendChild(g);
+  if (!S.composition.length) return;
+  const uid = `comp${compSeq += 1}`;
+  const NS = "http://www.w3.org/2000/svg";
+
+  // 1) 碎片位置向质心收拢——熔在一起，而不是散摆
+  const cx0 = S.composition.reduce((a, p) => a + p.x, 0) / S.composition.length;
+  const cy0 = S.composition.reduce((a, p) => a + p.y, 0) / S.composition.length;
+  const K = 0.62;
+  const pieces = S.composition.map((p) => {
+    const px = cx0 + (p.x - cx0) * K, py = cy0 + (p.y - cy0) * K;
+    const rad = (p.rot * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    const pts = p.points.trim().split(/\s+/).map((s) => {
+      const [x, y] = s.split(",").map(Number);
+      const sx = x * p.scale, sy = y * p.scale;
+      return [px + sx * cos - sy * sin, py + sx * sin + sy * cos];
+    });
+    return { ...p, px, py, pts };
   });
-  if (gold && S.composition.length > 1) {
-    // 金缮：沿放置顺序连金线
-    const d = S.composition.map((p, i) => `${i ? "Q" : "M"}${i ? `${(S.composition[i - 1].x + p.x) / 2 + 14} ${(S.composition[i - 1].y + p.y) / 2 - 10} ` : ""}${p.x} ${p.y}`).join(" ");
-    const seam = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    seam.setAttribute("d", d);
-    seam.setAttribute("fill", "none");
-    seam.setAttribute("stroke", "var(--gold)");
-    seam.setAttribute("stroke-width", "4");
-    seam.setAttribute("stroke-linecap", "round");
-    const len = 600;
-    seam.setAttribute("stroke-dasharray", String(len));
-    seam.setAttribute("stroke-dashoffset", String(len));
-    seam.style.transition = "stroke-dashoffset 2.4s ease";
-    targetG.appendChild(seam);
-    requestAnimationFrame(() => requestAnimationFrame(() => { seam.style.strokeDashoffset = "0"; }));
+
+  // 2) 整体轮廓：所有顶点的凸包，外扩后平滑 → 一个圆润的"器物"外形
+  const hull = convexHull(pieces.flatMap((p) => p.pts));
+  const hc = hull.reduce((a, q) => [a[0] + q[0] / hull.length, a[1] + q[1] / hull.length], [0, 0]);
+  const pad = hull.map(([x, y]) => {
+    const dx = x - hc[0], dy = y - hc[1], d = Math.hypot(dx, dy) || 1;
+    const e = (d + 10) / d;
+    return [hc[0] + dx * e, hc[1] + dy * e];
+  });
+  const bodyD = smoothClosed(pad);
+  const domColor = pieces[0].color || "#9DB8C8";
+
+  // 3) 玻璃体：渐变 + 外描边
+  const defs = document.createElementNS(NS, "defs");
+  defs.innerHTML = gold
+    ? `<radialGradient id="${uid}g" cx=".38" cy=".3" r=".95">
+         <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+         <stop offset=".55" stop-color="${domColor}" stop-opacity=".38"/>
+         <stop offset="1" stop-color="${domColor}" stop-opacity=".62"/>
+       </radialGradient>
+       <clipPath id="${uid}c"><path d="${bodyD}"/></clipPath>`
+    : `<radialGradient id="${uid}g" cx=".42" cy=".38" r=".9">
+         <stop offset="0" stop-color="#FFE3BD" stop-opacity=".95"/>
+         <stop offset="1" stop-color="#E8935A" stop-opacity=".8"/>
+       </radialGradient>
+       <clipPath id="${uid}c"><path d="${bodyD}"/></clipPath>`;
+  targetG.appendChild(defs);
+
+  const body = document.createElementNS(NS, "path");
+  body.setAttribute("d", bodyD);
+  body.setAttribute("fill", `url(#${uid}g)`);
+  body.setAttribute("stroke", gold ? "#FFFFFF" : "#FFE7C2");
+  body.setAttribute("stroke-opacity", ".85");
+  body.setAttribute("stroke-width", "2");
+  targetG.appendChild(body);
+
+  // 4) 内部切面：原碎片作为玻璃的琢面纹理（裁在轮廓里）
+  const inner = document.createElementNS(NS, "g");
+  inner.setAttribute("clip-path", `url(#${uid}c)`);
+  pieces.forEach((p) => {
+    const poly = document.createElementNS(NS, "polygon");
+    poly.setAttribute("points", p.pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" "));
+    poly.setAttribute("fill", gold ? p.color : "#E8A468");
+    poly.setAttribute("fill-opacity", gold ? ".45" : ".5");
+    poly.setAttribute("stroke", "#FFFFFF");
+    poly.setAttribute("stroke-opacity", ".35");
+    poly.setAttribute("stroke-width", "1");
+    inner.appendChild(poly);
+  });
+  // 高光：左上一弯月牙形反光，玻璃质感
+  const hi = document.createElementNS(NS, "ellipse");
+  hi.setAttribute("cx", (hc[0] - 14).toFixed(1));
+  hi.setAttribute("cy", (hc[1] - 18).toFixed(1));
+  hi.setAttribute("rx", "20"); hi.setAttribute("ry", "10");
+  hi.setAttribute("transform", `rotate(-24 ${hc[0] - 14} ${hc[1] - 18})`);
+  hi.setAttribute("fill", "#FFFFFF");
+  hi.setAttribute("fill-opacity", gold ? ".5" : ".35");
+  inner.appendChild(hi);
+  targetG.appendChild(inner);
+
+  if (gold) {
+    // 5) 金缮缝：相邻碎片之间的接缝（最小生成树），裁在器物内，弧线柔和
+    const parent = pieces.map((_, i) => i);
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const edges = [];
+    for (let i = 0; i < pieces.length; i++)
+      for (let j = i + 1; j < pieces.length; j++)
+        edges.push([Math.hypot(pieces[i].px - pieces[j].px, pieces[i].py - pieces[j].py), i, j]);
+    edges.sort((a, b) => a[0] - b[0]);
+    const seamG = document.createElementNS(NS, "g");
+    seamG.setAttribute("clip-path", `url(#${uid}c)`);
+    let k = 0;
+    for (const [, i, j] of edges) {
+      if (find(i) === find(j)) continue;
+      parent[find(i)] = find(j);
+      const a = pieces[i], b = pieces[j];
+      const mx = (a.px + b.px) / 2, my = (a.py + b.py) / 2;
+      const dx = b.px - a.px, dy = b.py - a.py, L = Math.hypot(dx, dy) || 1;
+      const off = Math.min(9, L * 0.22) * (k % 2 ? 1 : -1);
+      // 缝延长到穿过整块玻璃（像真实金缮裂缝，不是点到点的短线）
+      const ex = dx / L * 26, ey = dy / L * 26;
+      const seam = document.createElementNS(NS, "path");
+      seam.setAttribute("d",
+        `M${(a.px - ex).toFixed(1)} ${(a.py - ey).toFixed(1)} Q${(mx - dy / L * off).toFixed(1)} ${(my + dx / L * off).toFixed(1)} ${(b.px + ex).toFixed(1)} ${(b.py + ey).toFixed(1)}`);
+      seam.setAttribute("fill", "none");
+      seam.setAttribute("stroke", "var(--gold)");
+      seam.setAttribute("stroke-width", "3.2");
+      seam.setAttribute("stroke-linecap", "round");
+      seam.setAttribute("pathLength", "100");
+      seam.setAttribute("stroke-dasharray", "100");
+      seam.setAttribute("stroke-dashoffset", "100");
+      seam.style.transition = `stroke-dashoffset 1.6s ease ${(0.5 + k * 0.35).toFixed(2)}s`;
+      seamG.appendChild(seam);
+      k += 1;
+    }
+    targetG.appendChild(seamG);
+
+    // 6) 金描边勾勒整件器物 + 顶部小金环（挂坠感，呼应藏品间的麻绳）
+    const rim = document.createElementNS(NS, "path");
+    rim.setAttribute("d", bodyD);
+    rim.setAttribute("fill", "none");
+    rim.setAttribute("stroke", "var(--gold)");
+    rim.setAttribute("stroke-width", "2.4");
+    rim.setAttribute("stroke-opacity", ".9");
+    rim.setAttribute("pathLength", "100");
+    rim.setAttribute("stroke-dasharray", "100");
+    rim.setAttribute("stroke-dashoffset", "100");
+    rim.style.transition = "stroke-dashoffset 2.2s ease .2s";
+    targetG.appendChild(rim);
+
+    const top = pad.reduce((a, q) => (q[1] < a[1] ? q : a), pad[0]);
+    const ring = document.createElementNS(NS, "circle");
+    ring.setAttribute("cx", top[0].toFixed(1));
+    ring.setAttribute("cy", (top[1] - 7).toFixed(1));
+    ring.setAttribute("r", "5");
+    ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", "var(--gold)");
+    ring.setAttribute("stroke-width", "2.6");
+    targetG.appendChild(ring);
+
+    // 7) 两粒星光点缀
+    [[hc[0] + 26, hc[1] - 24, 1], [hc[0] - 30, hc[1] + 16, 0.7]].forEach(([x, y, s]) => {
+      const sp = document.createElementNS(NS, "path");
+      sp.setAttribute("d", `M${x} ${y - 5 * s} L${x + 1.4 * s} ${y - 1.4 * s} L${x + 5 * s} ${y} L${x + 1.4 * s} ${y + 1.4 * s} L${x} ${y + 5 * s} L${x - 1.4 * s} ${y + 1.4 * s} L${x - 5 * s} ${y} L${x - 1.4 * s} ${y - 1.4 * s} Z`);
+      sp.setAttribute("fill", "var(--gold)");
+      sp.setAttribute("opacity", "0");
+      sp.style.transition = `opacity 1s ease ${(1.6 + Math.random()).toFixed(2)}s`;
+      targetG.appendChild(sp);
+      requestAnimationFrame(() => requestAnimationFrame(() => { sp.style.opacity = ".85"; }));
+    });
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      rim.style.strokeDashoffset = "0";
+      seamG.querySelectorAll("path").forEach((s) => { s.style.strokeDashoffset = "0"; });
+    }));
   }
 }
 
