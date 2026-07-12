@@ -64,8 +64,10 @@
 
   /* ---- 常驻 ---- */
   #safety {
-    position: fixed; bottom: 8px; left: 0; right: 0; text-align: center; z-index: 80;
-    font-size: 9.5px; color: #A3C4D4; letter-spacing: .5px; pointer-events: none;
+    position: fixed; bottom: 0; left: 0; right: 0; text-align: center; z-index: 80;
+    font-size: 12px; color: #5E86A0; letter-spacing: .5px; pointer-events: none;
+    padding: 8px 16px 10px;
+    background: linear-gradient(to top, rgba(255,255,255,.92), rgba(255,255,255,0));
   }
   #muteBtn {
     position: fixed; top: 14px; right: 14px; z-index: 80; width: 38px; height: 38px;
@@ -92,7 +94,7 @@
   }
   #mirrorFrame .live { font-size: 10px; color: var(--primary); letter-spacing: 2px; margin: 2px 0 4px 6px; }
   #mirrorFrame .live .dot { color: #E86A5E; }
-  #mirrorFrame .note { font-size: 9px; color: #A3C4D4; text-align: center; margin: 4px 0; }
+  #mirrorFrame .note { font-size: 12px; color: #6E96AE; text-align: center; margin: 6px 0; letter-spacing: .5px; }
   #permCard { text-align: center; max-width: 300px; }
   #guessWrap { display: none; flex-direction: column; align-items: center; gap: 14px; }
   #guessWrap.show { display: flex; }
@@ -200,6 +202,38 @@
   .shard-poly { stroke: #fff; stroke-opacity: .8; stroke-width: 1.5; filter: drop-shadow(0 6px 6px rgba(90,140,170,.3)); }
   .shard-label { fill: #fff; font-size: 13px; letter-spacing: 2px; pointer-events: none; }
   text { user-select: none; }
+
+  /* ===== 工作台新手引导 ===== */
+  #guideTap, #guideDrag { pointer-events: none; }
+  .guide-hand { opacity: .78; filter: drop-shadow(0 3px 5px rgba(60,90,110,.35)); }
+  @keyframes guideTapAnim {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    28% { transform: translate(-2px, -10px) scale(1); }
+    42% { transform: translate(0, 2px) scale(.9); }   /* 按下 */
+    56% { transform: translate(-2px, -10px) scale(1); }
+  }
+  #guideTap .guide-hand { animation: guideTapAnim 1.8s ease-in-out infinite; }
+  @keyframes guideRipple {
+    0%, 38% { r: 0; opacity: 0; }
+    44% { r: 4; opacity: .85; }
+    70% { r: 22; opacity: 0; }
+    100% { r: 22; opacity: 0; }
+  }
+  #guideTap .guide-ripple { animation: guideRipple 1.8s ease-out infinite; }
+  .guide-tip { font-size: 12.5px; fill: #5E86A0; letter-spacing: 2px; text-anchor: middle; }
+  .guide-tip-bg { fill: rgba(255,255,255,.85); }
+  #guideDrag .guide-path {
+    fill: none; stroke: #7FAEC8; stroke-width: 2;
+    stroke-dasharray: 6 8; stroke-linecap: round;
+    animation: guideDash 1.2s linear infinite;
+  }
+  @keyframes guideDash { to { stroke-dashoffset: -14; } }
+  #guideDrag .guide-arrow { fill: #7FAEC8; }
+  .guide-fade { transition: opacity .5s ease; opacity: 0 !important; }
+
+  /* 进场演示（一好一坏两块示例碎片） */
+  #demoLayer { pointer-events: none; }
+  #demoLayer .demo-skip { pointer-events: auto; fill: #8FB6C9; font-size: 12px; letter-spacing: 1px; cursor: pointer; }
 
   /* ================= 7 藏品间 · 回忆总结（淡蓝） ================= */
   #sceneCollection {
@@ -475,7 +509,7 @@
 
   <!-- ============ 1 门口 ============ -->
   <section id="sceneGate" class="scene active">
-    <div class="bubble" id="gateBubble"><span id="gateLine"></span><div class="who">—— 玻璃精灵</div></div>
+    <div class="bubble" id="gateBubble"><span id="gateLine"></span></div>
     <svg id="gateArt" viewBox="0 0 520 430" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
@@ -528,11 +562,10 @@
       <svg id="faceSvg" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <filter id="rf" x="-25%" y="-25%" width="150%" height="150%">
-            <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7" result="n"/>
-            <feDisplacementMap in="SourceGraphic" in2="n" scale="3"/>
+            <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6"/>
           </filter>
         </defs>
-        <line x1="8" y1="120" x2="192" y2="120" stroke="#D5E8F1" stroke-width="1.5"/>
         <g filter="url(#rf)">
           <!-- 整个小人：包一层 #character 方便整体做姿态变换（倒立/坐下/呼吸偏移等） -->
           <g id="character">
@@ -593,7 +626,7 @@
     </div>
     <div id="talkTop">
       <div id="mirrorDock"></div>
-      <div class="bubble" id="spiritSay"><span id="spiritLine"></span><div class="who">—— 玻璃精灵</div></div>
+      <div class="bubble" id="spiritSay"><span id="spiritLine"></span></div>
     </div>
     <svg id="shardSky" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="captions"><span id="finalCap"></span><span class="interim" id="interimCap"></span></div>
@@ -631,7 +664,7 @@
       </g>
       <g id="benchPieces"></g>
     </svg>
-    <div id="benchSay">这些，就是刚才压在你心里的东西。<br/><small>点一点可以敲碎——碎片不会消失，它们是接下来要用的材料</small></div>
+    <div id="benchSay">这些，就是刚才压在你心里的东西。<br/><small>点两下可以敲碎——碎片不会消失，它们是接下来要用的材料</small></div>
     <div id="benchFoot"><button class="btn" id="toFurnaceBtn" disabled>送 入 熔 炉 →</button></div>
   </section>
 
@@ -827,6 +860,7 @@ const S = {
   nameOptionsPromise: null,
   nameOptionsVersion: 0,
   finalSummary: "",      // 档案馆里的"当时的自己"总结
+  voiceRecordings: [],   // [{blob, at}] 每段倾诉的原始录音，可多段
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -892,7 +926,6 @@ const GREETINGS = [
   "你来了。今天，有什么压在心上吗？",
   "不用急着说话，先进来坐坐也可以。",
   "这里的玻璃，记得每一种心情的颜色。",
-  "外面的风大吗？炉子一直是热的。",
   "今天想让我陪你待一会儿吗？",
   "无论你带来什么，这里都放得下。",
 ];
@@ -987,89 +1020,92 @@ drawFace();
 const LIMB_IDS = ["torso", "armL", "armR", "legL", "legR"];
 
 const POSES = {
+  /* 坐标约定：头圆心(100,88) r54，下沿 y=142。
+     躯干一律从 y=138 起笔（藏进头下沿里），任何姿态脖子都不会断。
+     手部终点必须离头心距离 > 60，否则会画进脑袋（穿模）。 */
   stand: {
-    torso:[100,142, 100,170, 100,196],
+    torso:[100,138, 100,168, 100,196],
     armL: [100,156,  88,166,  76,180],
     armR: [100,156, 112,166, 124,180],
     legL: [100,196,  92,214,  84,232],
     legR: [100,196, 108,214, 116,232],
     rot:0, cx:100, cy:150, ox:0, oy:0,
   },
-  // 开心：双手举成 V
+  // 开心：双手斜上举成小 V（手停在肩侧外上方，离头远一点）
   happy: {
-    torso:[100,142, 100,170, 100,196],
-    armL: [100,156,  80,140,  62,120],
-    armR: [100,156, 120,140, 138,120],
+    torso:[100,138, 100,168, 100,196],
+    armL: [100,158,  74,158,  56,140],
+    armR: [100,158, 126,158, 144,140],
     legL: [100,196,  92,214,  84,232],
     legR: [100,196, 108,214, 116,232],
     rot:0, cx:100, cy:150, ox:0, oy:-2,
   },
-  // 难过：肩塌前倾，双手垂着
+  // 难过：肩塌，双手垂着（躯干只微微前倾，不歪）
   sad: {
-    torso:[100,146, 103,174, 106,200],
-    armL: [100,160,  92,180,  82,204],
-    armR: [100,160, 110,180, 116,204],
-    legL: [106,200,  96,218,  88,236],
-    legR: [106,200, 112,218, 120,236],
+    torso:[100,138, 101,170, 102,198],
+    armL: [100,160,  92,180,  84,202],
+    armR: [100,160, 108,180, 114,202],
+    legL: [102,198,  94,218,  86,236],
+    legR: [102,198, 108,218, 116,236],
     rot:0, cx:100, cy:150, ox:0, oy:4,
   },
   // 生气：双手叉腰，肘外撑
   angry: {
-    torso:[100,142, 100,170, 100,194],
+    torso:[100,138, 100,168, 100,194],
     armL: [100,156,  72,168,  92,190],
     armR: [100,156, 128,168, 108,190],
     legL: [100,194,  88,214,  76,232],
     legR: [100,194, 112,214, 124,232],
     rot:0, cx:100, cy:150, ox:0, oy:0,
   },
-  // 惊讶：双手往两边猛地抬起
+  // 惊讶：双手往两边猛地抬起（手在肩外侧，离头留足间距）
   surprised: {
-    torso:[100,142, 100,170, 100,196],
-    armL: [100,156,  76,138,  58,124],
-    armR: [100,156, 124,138, 142,124],
+    torso:[100,138, 100,168, 100,196],
+    armL: [100,156,  74,152,  54,142],
+    armR: [100,156, 126,152, 146,142],
     legL: [100,196,  90,214,  78,232],
     legR: [100,196, 110,214, 122,232],
     rot:0, cx:100, cy:150, ox:0, oy:-4,
   },
-  // 蹲下：膝盖弯开，屁股沉下去
+  // 蹲下：膝盖弯开，屁股沉下去（躯干仍从头下沿起，整体用 oy 下移）
   squat: {
-    torso:[100,158, 100,178, 100,200],
-    armL: [100,170,  82,186,  74,204],
-    armR: [100,170, 118,186, 126,204],
+    torso:[100,138, 100,170, 100,200],
+    armL: [100,166,  82,184,  74,204],
+    armR: [100,166, 118,184, 126,204],
     legL: [100,200,  76,212,  84,232],
     legR: [100,200, 124,212, 116,232],
     rot:0, cx:100, cy:150, ox:0, oy:14,
   },
-  // 盘腿坐：两腿交叉
+  // 盘腿坐：小腿在身前交盘，双手搭膝（不再和躯干绞成一团）
   sit: {
-    torso:[100,158, 100,176, 100,196],
-    armL: [100,170,  86,190,  74,208],
-    armR: [100,170, 114,190, 126,208],
-    legL: [100,196,  78,208, 118,222],
-    legR: [100,196, 122,208,  82,222],
+    torso:[100,138, 100,168, 100,196],
+    armL: [100,164,  88,186,  76,206],
+    armR: [100,164, 112,186, 124,206],
+    legL: [100,196,  74,206, 114,218],
+    legR: [100,196, 126,206,  86,218],
     rot:0, cx:100, cy:150, ox:0, oy:20,
   },
-  // 挥手：右手举高招手
+  // 挥手：右手举到肩侧外挥（离头留足间距）
   wave: {
-    torso:[100,142, 100,170, 100,196],
+    torso:[100,138, 100,168, 100,196],
     armL: [100,156,  88,166,  76,180],
-    armR: [100,156, 118,130, 138,108],
+    armR: [100,156, 132,158, 148,142],
     legL: [100,196,  92,214,  84,232],
     legR: [100,196, 108,214, 116,232],
     rot:0, cx:100, cy:150, ox:0, oy:0,
   },
   // 跳起来：脚离地，手打开
   jump: {
-    torso:[100,142, 100,168, 100,192],
-    armL: [100,156,  80,148,  66,142],
-    armR: [100,156, 120,148, 134,142],
+    torso:[100,138, 100,166, 100,192],
+    armL: [100,156,  80,148,  62,144],
+    armR: [100,156, 120,148, 138,144],
     legL: [100,192,  86,208,  82,222],
     legR: [100,192, 114,208, 118,222],
     rot:0, cx:100, cy:150, ox:0, oy:-16,
   },
   // 趴着（歪着头趴一会儿）：整体往右倒 78°
   lieSide: {
-    torso:[100,142, 100,170, 100,196],
+    torso:[100,138, 100,168, 100,196],
     armL: [100,156,  86,168,  74,182],
     armR: [100,156, 114,168, 126,182],
     legL: [100,196,  92,216,  84,236],
@@ -1154,9 +1190,9 @@ function drawBody(t) {
   if (currentPoseName === "jump")      breatheY += Math.sin(t / 240) * 4;      // 反复起跳
   if (currentPoseName === "wave") {
     // 挥手：让右臂末端在 x 方向小幅摆动
-    const swing = Math.sin(t / 180) * 6;
-    limbTarget.armR[4] = 138 + swing;
-    limbTarget.armR[2] = 118 + swing * 0.5;
+    const swing = Math.sin(t / 180) * 5;
+    limbTarget.armR[4] = 148 + swing;
+    limbTarget.armR[2] = 132 + swing * 0.5;
   }
   const swayX = st.tx * 0.35;    // 身体跟头一起微微左右
   const swayR = -st.roll * 0.15; // 身体跟头一起微微歪
@@ -1602,6 +1638,17 @@ async function finishListening() {
 
   const fallbackTranscript = fullLiveTranscript();
   const audioBlob = await stopAudioCapture();
+  // 记录声音：每段录音都保留（可多段），并异步存到本地服务
+  if (audioBlob && audioBlob.size > 1200) {
+    S.voiceRecordings.push({ blob: audioBlob, at: Date.now() });
+    if (S.sessionId) {
+      fetch(`/api/sessions/${S.sessionId}/audio`, {
+        method: "POST",
+        headers: { "Content-Type": audioBlob.type || "audio/webm" },
+        body: audioBlob,
+      }).catch(() => {});
+    }
+  }
   let finalTranscript = fallbackTranscript;
   let transcriptSource = "webspeech-live";
 
@@ -1623,7 +1670,6 @@ async function finishListening() {
     return;
   }
 
-  $("micBtn").disabled = true;
   $("micHint").textContent = "我听见了，正在把它变成玻璃碎片…";
   queueTranscriptUpdate(finalTranscript, {
     isFinal: true,
@@ -1633,9 +1679,20 @@ async function finishListening() {
   });
   await liveSpeech.saveQueue;
   await refreshImagery();
+  // 不禁用按钮：整理完随时可再点，继续补充倾诉（可反复录制）
+  liveSpeech.finishing = false;
+  $("micHint").textContent = "想到新的随时再点麦克风继续说 · 或去工作台";
 }
 
-$("micBtn").onclick = finishListening;
+$("micBtn").onclick = () => {
+  if (liveSpeech.finishing) return;
+  if (liveSpeech.listening || liveSpeech.recognition) {
+    finishListening();          // 正在听 → 结束这一段
+  } else {
+    liveSpeech.manualStop = false;   // 已结束 → 再点重新开始听
+    startContinuousListening();
+  }
+};
 
 /* ---- 打字输入 ---- */
 let typedAll = "";
@@ -1794,6 +1851,211 @@ function enterBench() {
     const [x, y] = startSlots[i % startSlots.length];
     addBenchPiece({ word: s2.item.word, color: s2.item.color, points: s2.points, x, y, rot: s2.rot, scale: s2.scale * 0.82, broken: false });
   });
+  playBenchDemo().then(() => showTapGuide());
+}
+
+/* ===== 进场演示：一好一坏两块示例碎片 =====
+ * 好碎片（如「一次深呼吸」）被幽灵手拖进爱心 → 留下的演示；
+ * 坏碎片（如「压着的话」）被点两下敲碎 → 碎开的演示。
+ * 演示完两块都淡出消失，不进入用户的素材。全程可点"跳过"。
+ * 文案强调"你也可以反着来"——尊重用户自己的选择。
+ */
+const DEMO_GOOD = { word: "一次深呼吸", color: "#9DB39C" };
+const DEMO_BAD = { word: "压着的话", color: "#8A93B8" };
+
+function playBenchDemo() {
+  return new Promise((resolve) => {
+    if (S.benchDemoShown) { resolve(); return; }
+    S.benchDemoShown = true;
+    const svg = $("benchSvg");
+    const layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    layer.id = "demoLayer";
+    svg.appendChild(layer);
+
+    const mk = (d, x, y) => {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.innerHTML = `
+        <polygon class="shard-poly" points="0,-20 22,-8 16,16 -16,14 -22,-6" fill="${d.color}" fill-opacity="0.85"/>
+        <text class="shard-label" text-anchor="middle" y="5" font-size="11">${d.word}</text>`;
+      g.setAttribute("transform", `translate(${x} ${y})`);
+      g.setAttribute("opacity", "0");
+      layer.appendChild(g);
+      return { g, x, y };
+    };
+    const good = mk(DEMO_GOOD, 150, 150);
+    const bad = mk(DEMO_BAD, 330, 150);
+    const hand = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    hand.innerHTML = guideHandSVG();
+    hand.setAttribute("opacity", "0");
+    layer.appendChild(hand);
+
+    const skip = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    skip.setAttribute("class", "demo-skip");
+    skip.setAttribute("x", "446"); skip.setAttribute("y", "276"); skip.setAttribute("text-anchor", "end");
+    skip.textContent = "跳过演示 ›";
+    layer.appendChild(skip);
+
+    const say = (html) => { $("benchSay").innerHTML = html; };
+
+    /* SVG 元素不能用 CSS transform 动画（无单位坐标非法，会被打回原点）。
+     * 统一用 rAF 逐帧写 transform 属性。 */
+    const tween = (el, from, to, dur) => new Promise((r) => {
+      const t0 = performance.now();
+      (function step(now) {
+        if (cancelled) { r(); return; }
+        const k = Math.min(1, (now - t0) / dur);
+        const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;  // easeInOut
+        el.setAttribute("transform",
+          `translate(${from.x + (to.x - from.x) * e} ${from.y + (to.y - from.y) * e})`);
+        if (k < 1) requestAnimationFrame(step); else r();
+      })(t0);
+    });
+
+    const handPos = { x: 0, y: 0 };
+    const moveHand = async (x, y, dur) => {
+      if (hand.getAttribute("opacity") === "0") {
+        handPos.x = x; handPos.y = y + 30;   // 从目标下方浮现
+        hand.setAttribute("transform", `translate(${handPos.x} ${handPos.y})`);
+        hand.style.transition = "opacity .4s ease";
+        hand.setAttribute("opacity", "1");
+      }
+      await tween(hand, { ...handPos }, { x, y }, dur);
+      handPos.x = x; handPos.y = y;
+    };
+    // 手指"按一下"：往下戳 6px 再回来
+    const pressHand = async () => {
+      await tween(hand, { ...handPos }, { x: handPos.x, y: handPos.y + 6 }, 110);
+      await tween(hand, { x: handPos.x, y: handPos.y + 6 }, { ...handPos }, 130);
+    };
+
+    let cancelled = false;
+    const timers = [];
+    const wait = (ms) => new Promise((r) => timers.push(setTimeout(r, ms)));
+
+    async function run() {
+      say(`先看一眼——它们不都一样。<br/><small>有的想留下，有的想碎掉，都由你决定</small>`);
+      good.g.style.transition = bad.g.style.transition = "opacity .8s ease";
+      good.g.setAttribute("opacity", "1"); bad.g.setAttribute("opacity", "1");
+      await wait(1400); if (cancelled) return;
+
+      // 1) 好碎片：拖进爱心 → 保留
+      say(`像「${DEMO_GOOD.word}」这样想留住的——<br/><small>拖进下面的形状里</small>`);
+      await moveHand(good.x + 8, good.y + 10, 600); if (cancelled) return;
+      await wait(300);
+      // 手带着碎片一起走
+      const gx = 200, gy = 400;
+      await Promise.all([
+        tween(good.g, { x: good.x, y: good.y }, { x: gx, y: gy }, 1300),
+        moveHand(gx + 8, gy + 10, 1300),
+      ]);
+      if (cancelled) return;
+      good.x = gx; good.y = gy;
+      await wait(200); if (cancelled) return;
+      good.g.querySelector("polygon").setAttribute("stroke", "#E8CE8A");
+      good.g.querySelector("polygon").setAttribute("stroke-width", "2.4");
+      sfx.chime();
+      say(`它留下来了 ✦`);
+      await wait(1100); if (cancelled) return;
+
+      // 2) 坏碎片：点两下 → 碎开
+      say(`像「${DEMO_BAD.word}」这样压着的——<br/><small>点两下，让它碎开</small>`);
+      await moveHand(bad.x + 6, bad.y + 8, 800); if (cancelled) return;
+      // 第一下：裂纹
+      await pressHand(); if (cancelled) return;
+      const crack = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      crack.setAttribute("d", "M-2 -14 l3 8 -4 6 5 8");
+      crack.setAttribute("stroke", "#fff"); crack.setAttribute("stroke-width", "1.3"); crack.setAttribute("fill", "none");
+      bad.g.appendChild(crack);
+      sfx.chime();
+      await wait(700); if (cancelled) return;
+      // 第二下：碎开
+      await pressHand(); if (cancelled) return;
+      sfx.crack();
+      bad.g.innerHTML = ["0,-16 18,-6 8,14 -14,10", "-16,-8 12,-14 14,8 -8,12", "-12,-12 14,-8 6,14"]
+        .map((pts, i) => `<polygon class="shard-poly" points="${pts}" fill="${DEMO_BAD.color}" fill-opacity="0.8"
+          transform="translate(${(i - 1) * 30} ${14 + i * 6}) rotate(${(i - 1) * 22}) scale(.8)"/>`).join("");
+      say(`碎了，但没有消失——碎片也能拼进去。<br/><small>想反过来也可以，这里没有标准答案</small>`);
+      await wait(1900); if (cancelled) return;
+
+      finish();
+    }
+
+    function finish() {
+      if (cancelled) return;
+      cancelled = true;
+      timers.forEach(clearTimeout);
+      layer.style.transition = "opacity .7s ease";
+      layer.style.opacity = "0";
+      setTimeout(() => layer.remove(), 750);
+      say(`该你了。这些，是刚才压在你心里的东西。<br/><small>点两下敲碎，或直接拖进去——都听你的</small>`);
+      resolve();
+    }
+    skip.addEventListener("pointerdown", (e) => { e.stopPropagation(); finish(); });
+    run();
+  });
+}
+
+/* ===== 工作台新手引导 =====
+ * 第一步：透明手指落在第一块玻璃上，做"轻点"动画 → 用户敲碎任意一块后消失
+ * 第二步：从碎片到爱心画一条流动虚线+箭头 → 用户拖入第一块后消失，之后不再提示
+ */
+const guide = { tap: null, drag: null, tapDone: false, dragDone: false };
+
+function guideHandSVG() {
+  // 极简透明手指（指尖在原点，方便对位）
+  return `<g class="guide-hand">
+    <path d="M0 0 C -1 -4 3 -6 4 -2 L 5.5 4 C 9 3 10 5 9.5 8 L 8 16 C 7.5 19 5 20 2 20 L -2 20 C -5 20 -7 18 -7.5 15 L -8.5 9 C -9 6 -6 5 -4.5 7 L -3.5 8 Z"
+      fill="#fff" fill-opacity=".75" stroke="#7FAEC8" stroke-width="1.2" transform="scale(1.6) rotate(-12)"/>
+  </g>`;
+}
+
+function showTapGuide() {
+  if (guide.tapDone || !benchPieces.length) return;
+  removeGuide("tap");
+  const p = benchPieces[0];   // 落在第一块玻璃上
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.id = "guideTap";
+  g.innerHTML = `
+    <circle class="guide-ripple" cx="0" cy="0" fill="none" stroke="#7FAEC8" stroke-width="2"/>
+    ${guideHandSVG()}
+    <g transform="translate(0 46)">
+      <rect class="guide-tip-bg" x="-72" y="-14" width="144" height="24" rx="12"/>
+      <text class="guide-tip" y="3">轻轻点两下它</text>
+    </g>`;
+  g.setAttribute("transform", `translate(${p.x + 6} ${p.y + 10})`);
+  $("benchSvg").appendChild(g);
+  guide.tap = g;
+}
+
+function showDragGuide() {
+  if (guide.dragDone) return;
+  removeGuide("drag");
+  // 找一块未放置的碎片作为起点，终点是爱心中心
+  const src = benchPieces.find((p) => p.broken && !p.placed) || benchPieces.find((p) => !p.placed);
+  if (!src) return;
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  g.id = "guideDrag";
+  const x1 = src.x, y1 = src.y + 14, x2 = 240, y2 = 396;
+  const mx = (x1 + x2) / 2 + 30, my = (y1 + y2) / 2 - 20;
+  // 箭头角度取曲线末端切线方向
+  const ang = Math.atan2(y2 - my, x2 - mx) * 180 / Math.PI;
+  g.innerHTML = `
+    <path class="guide-path" d="M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}"/>
+    <polygon class="guide-arrow" points="0,-5 10,0 0,5" transform="translate(${x2} ${y2}) rotate(${ang.toFixed(0)})"/>
+    <g transform="translate(${x2} ${y2 + 26})">
+      <rect class="guide-tip-bg" x="-92" y="-14" width="184" height="24" rx="12"/>
+      <text class="guide-tip" y="3">把碎片拖进来，拼成你的形状</text>
+    </g>`;
+  $("benchSvg").appendChild(g);
+  guide.drag = g;
+}
+
+function removeGuide(which) {
+  const node = guide[which];
+  if (!node) return;
+  node.classList.add("guide-fade");
+  setTimeout(() => node.remove(), 520);
+  guide[which] = null;
 }
 let pieceSeq = 0;
 function addBenchPiece(p) {
@@ -1821,41 +2083,99 @@ function svgPoint(evt) {
   pt.x = evt.clientX; pt.y = evt.clientY;
   return pt.matrixTransform(svg.getScreenCTM().inverse());
 }
+/* 拖拽用 window 级监听 + 全局 activeDrag 跟踪：
+ * 指针捕获在 Safari 的 SVG 元素上不可靠，鼠标甩快了事件会丢在碎片外面。
+ * 监听挂在 window 上后，指针跑到页面任何位置都能继续拖。 */
+let activeDrag = null;   // { p, sx, sy, ox, oy, moved }
+
 function attachPieceEvents(p) {
-  let moved = false, sx = 0, sy = 0, ox = 0, oy = 0, dragging = false;
   p.el.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    p.el.setPointerCapture(e.pointerId);
     const m = svgPoint(e);
-    sx = m.x; sy = m.y; ox = p.x; oy = p.y; moved = false; dragging = true;
+    activeDrag = { p, sx: m.x, sy: m.y, ox: p.x, oy: p.y, moved: false };
     p.el.parentNode.appendChild(p.el); // 提到最上层
-  });
-  p.el.addEventListener("pointermove", (e) => {
-    if (!dragging) return;
-    const m = svgPoint(e);
-    if (Math.hypot(m.x - sx, m.y - sy) > 6) moved = true;
-    p.x = ox + (m.x - sx); p.y = oy + (m.y - sy);
-    positionPiece(p);
-  });
-  p.el.addEventListener("pointerup", () => {
-    dragging = false;
-    if (!moved) { shatterPiece(p); return; }
-    const inCanvas = p.x > CANVAS_RECT.x + 20 && p.x < CANVAS_RECT.x + CANVAS_RECT.w - 20 &&
-                     p.y > CANVAS_RECT.y + 20 && p.y < CANVAS_RECT.y + CANVAS_RECT.h - 10;
-    if (inCanvas && !p.placed) {
-      p.placed = true;
-      const PART_WORDS = ["心口", "边缘", "最亮的地方", "中心", "转角"];
-      $("benchSay").innerHTML = `这块${p.word ? `「${p.word}」` : "碎片"}，现在成了它${PART_WORDS[Math.floor(Math.random() * PART_WORDS.length)]}的一角 ✦`;
-    } else if (!inCanvas && p.placed) {
-      p.placed = false;
-    }
-    updateFurnaceBtn();
+    p.el.style.cursor = "grabbing";
   });
 }
+
+window.addEventListener("pointermove", (e) => {
+  if (!activeDrag) return;
+  const { p } = activeDrag;
+  const m = svgPoint(e);
+  if (Math.hypot(m.x - activeDrag.sx, m.y - activeDrag.sy) > 6) activeDrag.moved = true;
+  p.x = activeDrag.ox + (m.x - activeDrag.sx);
+  p.y = activeDrag.oy + (m.y - activeDrag.sy);
+  positionPiece(p);
+});
+
+function endDrag() {
+  if (!activeDrag) return;
+  const { p, moved } = activeDrag;
+  activeDrag = null;
+  p.el.style.cursor = "grab";
+  if (!moved) { tapPiece(p); return; }
+  const inCanvas = p.x > CANVAS_RECT.x + 20 && p.x < CANVAS_RECT.x + CANVAS_RECT.w - 20 &&
+                   p.y > CANVAS_RECT.y + 20 && p.y < CANVAS_RECT.y + CANVAS_RECT.h - 10;
+  if (inCanvas && !p.placed) {
+    p.placed = true;
+    // 引导step2完成：第一块拖进爱心后收起虚线，之后不再提示
+    if (!guide.dragDone) { guide.dragDone = true; removeGuide("drag"); }
+    // 用户跳过敲碎直接拖整块进来：点击引导也不用再教了
+    if (!guide.tapDone) { guide.tapDone = true; removeGuide("tap"); }
+    const PART_WORDS = ["心口", "边缘", "最亮的地方", "中心", "转角"];
+    $("benchSay").innerHTML = `这块${p.word ? `「${p.word}」` : "碎片"}，现在成了它${PART_WORDS[Math.floor(Math.random() * PART_WORDS.length)]}的一角 ✦`;
+  } else if (!inCanvas && p.placed) {
+    p.placed = false;
+  }
+  updateFurnaceBtn();
+}
+window.addEventListener("pointerup", endDrag);
+window.addEventListener("pointercancel", endDrag);
+/* 两下才碎：第一下出裂纹（防误触），2.5 秒内再点一下才碎开 */
+function tapPiece(p) {
+  if (p.broken || p.placed) return;
+  if (p.cracked) { shatterPiece(p); return; }
+  p.cracked = true;
+  sfx.chime();
+  // 第一下：细裂纹 + 轻微晃动，提示"再点一下"
+  const crackLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  crackLine.setAttribute("d", "M-2 -14 l3 8 -4 6 5 8");
+  crackLine.setAttribute("stroke", "#fff"); crackLine.setAttribute("stroke-width", "1.3");
+  crackLine.setAttribute("fill", "none"); crackLine.setAttribute("stroke-opacity", ".9");
+  p.el.appendChild(crackLine);
+  p.crackEl = crackLine;
+  // 轻微晃动：逐帧重写完整 transform（CSS 动画会覆盖 SVG 的 translate，导致跳到左上角）
+  {
+    const t0 = performance.now();
+    (function shake(now) {
+      const k = (now - t0) / 260;
+      if (k >= 1 || p.broken) { positionPiece(p); return; }
+      const wobble = Math.sin(k * Math.PI * 2) * 2.2 * (1 - k);
+      p.el.setAttribute("transform",
+        `translate(${p.x} ${p.y}) rotate(${p.rot + wobble}) scale(${p.scale})`);
+      requestAnimationFrame(shake);
+    })(t0);
+  }
+  $("benchSay").innerHTML = `它裂了一道缝。<br/><small>再点一下，让它碎开</small>`;
+  // 2.5 秒内没有第二下 → 裂纹愈合，回到完整状态（真误触不受影响）
+  p.crackTimer = setTimeout(() => {
+    p.cracked = false;
+    if (p.crackEl) { p.crackEl.remove(); p.crackEl = null; }
+  }, 2500);
+}
+
 function shatterPiece(p) {
   if (p.broken || p.placed) return;
+  clearTimeout(p.crackTimer);
+  if (p.crackEl) { p.crackEl.remove(); p.crackEl = null; }
   p.broken = true;
   sfx.crack();
+  // 引导step1完成：收起点击提示，敲碎动画结束后给拖拽指引
+  if (!guide.tapDone) {
+    guide.tapDone = true;
+    removeGuide("tap");
+    setTimeout(showDragGuide, 1100);
+  }
   // 裂纹一闪
   const flashLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
   flashLine.setAttribute("d", "M0 0 l-14 12 M0 0 l16 10 M0 0 l-4 -16 M0 0 l4 18");
