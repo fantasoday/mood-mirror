@@ -95,7 +95,19 @@
   #mirrorFrame .live { font-size: 10px; color: var(--primary); letter-spacing: 2px; margin: 2px 0 4px 6px; }
   #mirrorFrame .live .dot { color: #E86A5E; }
   #mirrorFrame .note { font-size: 12px; color: #6E96AE; text-align: center; margin: 6px 0; letter-spacing: .5px; }
-  #permCard { text-align: center; max-width: 300px; }
+  #permCard { text-align: center; max-width: 320px; }
+  .perm-list {
+    margin: 14px auto 0; max-width: 268px;
+    display: flex; flex-direction: column; gap: 9px; text-align: left;
+  }
+  .perm-row {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 12.5px; line-height: 1.6; color: var(--ink-soft);
+    background: rgba(255,255,255,.55); border-radius: 12px; padding: 9px 12px;
+  }
+  .perm-row span { text-wrap: balance; }
+  .perm-row b { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  .perm-ico { width: 22px; height: 22px; flex: none; }
   #guessWrap { display: none; flex-direction: column; align-items: center; gap: 14px; }
   #guessWrap.show { display: flex; }
   #mirrorBtns { display: flex; gap: 12px; }
@@ -600,10 +612,28 @@
     </div>
 
     <div class="card" id="permCard">
-      <p style="font-size:14.5px;line-height:1.8">这面玻璃想映出你的样子。<br/>画面只在你的设备上，不会上传。</p>
-      <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center">
-        <button class="btn" style="padding:13px 34px;font-size:15px" id="camBtn">让它看见我</button>
-        <button class="link" id="skipCamBtn">不开摄像头，直接进入 →</button>
+      <p style="font-size:14.5px;line-height:1.8">这面玻璃想映出你的样子，<br/>也想听见你的声音。</p>
+      <div class="perm-list">
+        <div class="perm-row">
+          <svg class="perm-ico" viewBox="0 0 24 24" fill="none" stroke="#5E86A0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.5" y="7" width="13" height="10" rx="2.5"/>
+            <path d="M15.5 10.5 L21 8 V16 L15.5 13.5"/>
+          </svg>
+          <span>画面只在设备上实时处理，<b>不会上传</b></span>
+        </div>
+        <div class="perm-row">
+          <svg class="perm-ico" viewBox="0 0 24 24" fill="none" stroke="#5E86A0" stroke-width="1.8" stroke-linecap="round">
+            <rect x="9" y="3.5" width="6" height="10.5" rx="3" fill="#DCEAF3" stroke="#5E86A0"/>
+            <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/>
+            <line x1="12" y1="18" x2="12" y2="20.5"/>
+          </svg>
+          <span>声音陪你倾诉，只保存在<b>你的本机</b></span>
+        </div>
+      </div>
+      <p style="font-size:12.5px;line-height:1.7;color:var(--ink-soft);margin-top:10px">随时可以跳过或中途关闭，这里由你说了算。</p>
+      <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px;align-items:center">
+        <button class="btn" style="padding:13px 30px;font-size:15px;letter-spacing:1px" id="camBtn">让它看见我、听见我</button>
+        <button class="link" id="skipCamBtn">先不授权，直接进入 →</button>
       </div>
     </div>
 
@@ -1222,6 +1252,15 @@ $("camBtn").onclick = async () => {
   $("camBtn").disabled = true;
   $("camBtn").textContent = "玻璃正在亮起…";
   try {
+    // 一次性请求摄像头+麦克风（单个授权弹窗）；随即释放，后续引擎/录音直接复用已授予的权限
+    try {
+      const warm = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      warm.getTracks().forEach((t) => t.stop());
+    } catch (_) {
+      // 麦克风被拒不挡镜像：单独再试摄像头，语音入口自然降级为打字
+      const camOnly = await navigator.mediaDevices.getUserMedia({ video: true });
+      camOnly.getTracks().forEach((t) => t.stop());
+    }
     engine = new EmotionEngine({ video, onStatus: () => {}, onFrame, smoothing: 0.4 });
     await engine.init();
     S.cameraOn = true;
@@ -1545,17 +1584,19 @@ function startContinuousListening() {
 }
 
 async function startAudioCapture() {
-  if (liveSpeech.recorder || liveSpeech.audioStream) return;
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
-  });
+  if (liveSpeech.recorder) return;
+  // 麦克风流保持常开（跨多段录音复用），避免每段都重新 getUserMedia 的延迟/弹窗
+  if (!liveSpeech.audioStream || !liveSpeech.audioStream.getAudioTracks().some((t) => t.readyState === "live")) {
+    liveSpeech.audioStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+    });
+  }
   const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
     ? "audio/webm;codecs=opus"
     : (MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "");
-  liveSpeech.audioStream = stream;
   liveSpeech.audioChunks = [];
   liveSpeech.recordingStartedAt = performance.now();
-  liveSpeech.recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  liveSpeech.recorder = new MediaRecorder(liveSpeech.audioStream, mime ? { mimeType: mime } : undefined);
   liveSpeech.recorder.ondataavailable = (event) => {
     if (event.data && event.data.size) liveSpeech.audioChunks.push(event.data);
   };
@@ -1573,7 +1614,6 @@ function stopAudioCapture() {
   return new Promise((resolve) => {
     const recorder = liveSpeech.recorder;
     if (!recorder) {
-      stopAudioTracks();
       resolve(null);
       return;
     }
@@ -1585,7 +1625,7 @@ function stopAudioCapture() {
         : null;
       liveSpeech.recorder = null;
       liveSpeech.audioChunks = [];
-      stopAudioTracks();
+      // 不关麦克风流：留给下一段复用；离开倾诉页时由 stopAudioTracks 统一释放
       resolve(blob && blob.size > 1000 ? blob : null);
     };
 
