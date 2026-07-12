@@ -1,0 +1,29 @@
+# Render 部署蓝图（Blueprint）
+# 使用方式：Render Dashboard → New → Blueprint → 连接本仓库即可自动读取本文件。
+# 纯 Node 服务，无第三方依赖，无需 Docker；Python 音乐服务已停用（浏览器端本地生成）。
+services:
+  - type: web
+    name: mood-mirror
+    runtime: node
+    plan: free
+    region: singapore        # 距中国近；如需直连 openai-next 可保持境外 region
+    buildCommand: npm install # 无依赖，等同 no-op
+    startCommand: node server.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      # —— 敏感值：不写进仓库，部署后在 Render Dashboard 手动填入 ——
+      - key: LLM_API_KEY
+        sync: false
+      - key: EMBER_OPENAI_KEY
+        sync: false
+      # —— 非敏感默认值 ——
+      - key: LLM_BASE_URL
+        value: https://api.openai-next.com/v1
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: EMBER_OPENAI_BASE_URL
+        value: https://api.openai-next.com/v1
+      - key: EMBER_LLM_MODEL
+        value: gpt-4o
+      # PORT 由 Render 自动注入，server.js 已读取 process.env.PORT

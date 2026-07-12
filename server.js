@@ -1,8 +1,35 @@
 const http = require("node:http");
+const fsSync = require("node:fs");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
+
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, ".env.local");
+  if (!fsSync.existsSync(envPath)) return;
+
+  const text = fsSync.readFileSync(envPath, "utf8");
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const normalized = line.startsWith("export ") ? line.slice(7).trim() : line;
+    const eq = normalized.indexOf("=");
+    if (eq <= 0) continue;
+
+    const key = normalized.slice(0, eq).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || process.env[key] !== undefined) continue;
+
+    let value = normalized.slice(eq + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
+
+loadLocalEnv();
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = __dirname;

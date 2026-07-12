@@ -84,14 +84,16 @@
   /* ================= 1 门口 ================= */
   #sceneGate .bubble { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 280px; opacity: 0; transition: opacity 1.2s ease; }
   #sceneGate .bubble.show { opacity: 1; }
-  #gateArt { position: absolute; bottom: 76px; width: 100%; }
+  #gateArt { position: absolute; bottom: clamp(168px, 15dvh, 210px); width: 100%; }
   #gateActions {
-    position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
+    position: absolute; left: 50%; bottom: max(68px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
     display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: min(380px, calc(100% - 48px));
     opacity: 0; transition: opacity 1.2s ease;
   }
   #gateActions.show { opacity: 1; }
-  #enterBtn { animation: breathe 3s ease-in-out infinite; }
+  #gateActions .btn { white-space: nowrap; }
+  #enterBtn { min-width: 136px; letter-spacing: 2px; animation: breathe 3s ease-in-out infinite; }
   #archiveBtn { padding-inline: 24px; white-space: nowrap; }
   @keyframes breathe { 0%,100% { box-shadow: 0 10px 26px rgba(74,158,191,.45); } 50% { box-shadow: 0 10px 40px rgba(74,158,191,.75); } }
 
@@ -588,7 +590,7 @@
       <ellipse cx="343" cy="412" rx="52" ry="7" fill="#9FC6D8" opacity=".35"/>
     </svg>
     <div id="gateActions">
-      <button class="btn" id="enterBtn">进 入</button>
+      <button class="btn" id="enterBtn">进入</button>
       <button class="btn ghost" id="archiveBtn">看看藏品</button>
     </div>
   </section>

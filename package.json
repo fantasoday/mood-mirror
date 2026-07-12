@@ -1,0 +1,12 @@
+{
+  "name": "mood-mirror",
+  "version": "1.0.0",
+  "private": true,
+  "description": "玻璃厂情绪整合 — 多模态情绪表达产品",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
