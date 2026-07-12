@@ -73,7 +73,10 @@
     position: fixed; top: 14px; right: 14px; z-index: 80; width: 38px; height: 38px;
     border-radius: 50%; border: none; cursor: pointer; font-size: 16px;
     background: rgba(255,255,255,.7); color: var(--primary); box-shadow: 0 4px 12px rgba(90,140,170,.2);
+    display: none;
   }
+  body.show-audio-toggle #muteBtn { display: block; }
+  #muteBtn.muted { opacity: .5; }
   .particles { position: absolute; inset: 0; pointer-events: none; }
   .particles i { position: absolute; border-radius: 50%; background: #fff; opacity: .7; animation: drift 9s ease-in-out infinite; }
   @keyframes drift { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-16px); opacity: .9; } }
@@ -81,9 +84,15 @@
   /* ================= 1 门口 ================= */
   #sceneGate .bubble { position: absolute; top: 12%; left: 50%; transform: translateX(-50%); width: 280px; opacity: 0; transition: opacity 1.2s ease; }
   #sceneGate .bubble.show { opacity: 1; }
-  #gateArt { position: absolute; bottom: 0; width: 100%; }
-  #enterBtn { position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 1.2s ease; animation: breathe 3s ease-in-out infinite; }
-  #enterBtn.show { opacity: 1; }
+  #gateArt { position: absolute; bottom: 76px; width: 100%; }
+  #gateActions {
+    position: absolute; left: 50%; bottom: 16%; transform: translateX(-50%);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    opacity: 0; transition: opacity 1.2s ease;
+  }
+  #gateActions.show { opacity: 1; }
+  #enterBtn { animation: breathe 3s ease-in-out infinite; }
+  #archiveBtn { padding-inline: 24px; white-space: nowrap; }
   @keyframes breathe { 0%,100% { box-shadow: 0 10px 26px rgba(74,158,191,.45); } 50% { box-shadow: 0 10px 40px rgba(74,158,191,.75); } }
 
   /* ================= 2 镜像 ================= */
@@ -419,10 +428,11 @@
     align-items: flex-start; /* 顶对齐，长内容也不会顶穿头部 */
     justify-content: center; gap: 14px;
     padding: 12px 4px; min-height: 0;
-    overflow-y: auto; overscroll-behavior: contain;
+    overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
   #memoBody::-webkit-scrollbar { width: 4px; }
+  #memoBody::-webkit-scrollbar:horizontal { height: 0; }
   #memoBody::-webkit-scrollbar-thumb { background: rgba(91,155,181,.28); border-radius: 4px; }
   #memoJarSlot {
     flex: 0 0 auto;
@@ -443,6 +453,7 @@
   #memoInfo .m-quote {
     font-size: 12.5px; line-height: 1.7; color: var(--ink);
     padding-top: 8px; border-top: 1px dashed rgba(91,155,181,0.28);
+    overflow-wrap: anywhere;
   }
   /* 当时的自己 · LLM 一句话总结（档案馆里的时间胶囊） */
   #memoInfo .m-memory {
@@ -576,7 +587,10 @@
       </g>
       <ellipse cx="343" cy="412" rx="52" ry="7" fill="#9FC6D8" opacity=".35"/>
     </svg>
-    <button class="btn" id="enterBtn">进 入</button>
+    <div id="gateActions">
+      <button class="btn" id="enterBtn">进 入</button>
+      <button class="btn ghost" id="archiveBtn">看看藏品</button>
+    </div>
   </section>
 
   <!-- ============ 2 镜像 ============ -->
@@ -880,6 +894,7 @@
 
 <script src="voice-input.js"></script>
 <script src="music-engine.js"></script>
+<script src="song-engine.js"></script>
 <script src="name-forge.js"></script>
 <script type="module">
 import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
@@ -887,6 +902,15 @@ import { EmotionEngine, EMOTION_META, clamp } from "./emotion-engine.js";
 const $ = (id) => document.getElementById(id);
 const lerp = (a, b, t) => a + (b - a) * t;
 const sfx = new MusicEngine();
+const SONG_TITLES = {
+  愤怒: "给这团火的歌",
+  悲伤: "陪你坐一会儿的歌",
+  恐惧: "跟着心跳走的歌",
+  厌恶: "保持距离的歌",
+  惊讶: "弯道上的歌",
+  喜悦: "会跳的歌",
+  平静: "照着呼吸写的歌",
+};
 
 /* ==================== 全局状态 ==================== */
 const S = {
@@ -904,6 +928,7 @@ const S = {
   nameOptionsVersion: 0,
   finalSummary: "",      // 档案馆里的"当时的自己"总结
   voiceRecordings: [],   // [{blob, at}] 每段倾诉的原始录音，可多段
+  archiveId: null,
 };
 
 /* 7 情绪 → 全站色板（--glass/--crack/--gold/--ambient/--card） */
@@ -937,6 +962,14 @@ const api = async (path, opts = {}) => {
 
 let currentScene = "sceneGate";
 document.body.dataset.scene = currentScene;
+function updateAudioToggle() {
+  const canShow = currentScene === "sceneCollection" || (
+    currentScene === "sceneName" &&
+    $("musicRow")?.classList.contains("show") &&
+    (!!musicUrl || !!localSongSpec)
+  );
+  document.body.classList.toggle("show-audio-toggle", canShow);
+}
 function gotoScene(id) {
   const from = $(currentScene);
   from.classList.add("leaving");
@@ -945,6 +978,7 @@ function gotoScene(id) {
     $(id).classList.add("active");
     currentScene = id;
     document.body.dataset.scene = id; // 让 CSS 能按场景切换 safety/muteBtn 等固定元素
+    updateAudioToggle();
   }, 550);
 }
 
@@ -960,7 +994,10 @@ function gotoScene(id) {
 })();
 
 /* 静音开关 */
-const syncMute = () => { $("muteBtn").textContent = sfx.muted ? "♪̸" : "♪"; $("muteBtn").style.opacity = sfx.muted ? .5 : 1; };
+const syncMute = () => {
+  $("muteBtn").textContent = sfx.muted ? "♪̸" : "♪";
+  $("muteBtn").classList.toggle("muted", sfx.muted);
+};
 $("muteBtn").onclick = () => { sfx.setMuted(!sfx.muted); syncMute(); };
 syncMute();
 
@@ -976,7 +1013,7 @@ setTimeout(() => {
   $("gateLine").textContent = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
   $("gateBubble").classList.add("show");
 }, 1200);
-setTimeout(() => $("enterBtn").classList.add("show"), 2400);
+setTimeout(() => $("gateActions").classList.add("show"), 2400);
 
 $("enterBtn").onclick = async () => {
   $("enterBtn").disabled = true;
@@ -989,6 +1026,11 @@ $("enterBtn").onclick = async () => {
   $("sceneGate").style.transition = "transform 1.1s ease";
   $("sceneGate").style.transform = "scale(1.15)";
   setTimeout(() => { gotoScene("sceneMirror"); $("flash").style.opacity = "0"; }, 750);
+};
+
+$("archiveBtn").onclick = () => {
+  buildCollection();
+  gotoScene("sceneCollection");
 };
 
 /* ==================== 2 镜像（简笔画渲染，复用 sketch-face 逻辑） ==================== */
@@ -2284,8 +2326,11 @@ function enterFurnace() {
   gotoScene("sceneFurnace");
   buildComposition($("furnacePiece"));
   sfx.furnace(13);
-  // 音乐：现在就开始后台生成（最长 90s，被熔炉+命名交互遮住）
-  if (S.sessionId) api(`/api/sessions/${S.sessionId}/music`, { method: "POST" }).catch(() => {});
+  // 音乐：旧版在这里调用后端 Python/LLM 生成 wav。
+  // if (S.sessionId) api(`/api/sessions/${S.sessionId}/music`, { method: "POST" }).catch(() => {});
+  // 现在改为浏览器本地作曲 + 离线渲染；无 API key、无网络也能生成。
+  prepareLocalSong();
+  renderLocalSongUrl().catch((error) => console.warn("[song] 本地渲染预热失败:", error.message));
   prefetchArtworkNames();
   // 火焰升起
   const glowE = $("glowE"), flames = $("flames");
@@ -2421,37 +2466,94 @@ $("nameConfirmBtn").onclick = async () => {
   $("musicRow").classList.add("show");
   $("toCollectionBtn").style.display = "inline-block";
   pollMusic();
-  // 后台异步生成"当时的自己"总结——档案馆的回忆卡要用
-  if (S.sessionId) {
-    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "POST", body: {} })
-      .then((out) => { if (out && out.ok) S.finalSummary = out.summary; })
-      .catch(() => {});
-  }
+  S.finalSummary = localMemoryLine();
 };
 
-/* ---- 音乐轮询与播放 ---- */
+/* ---- 音乐生成与播放（新版：浏览器本地 song-engine，无 key/无网可用） ---- */
 let musicUrl = null;
-async function pollMusic() {
-  if (!S.sessionId) { $("musicHint").textContent = "这一炉的声音留到下次再烧"; return; }
-  for (let i = 0; i < 40; i += 1) {
-    const out = await api(`/api/sessions/${S.sessionId}/music`).catch(() => null);
-    if (out && out.status === "ready" && out.music) {
-      musicUrl = out.music.url;
-      $("musicTitle").textContent = `♪ ${out.music.title || S.artworkName}`;
-      $("musicHint").textContent = "为这份心情烧成的一段声音";
-      $("playBtn").classList.add("pulsing");
-      return;
-    }
-    if (out && out.status === "failed") break;
-    await new Promise((r) => setTimeout(r, 3000));
-  }
-  $("musicHint").textContent = "这一炉的声音没能成形，下次再来听";
+let musicObjectUrl = null;
+let localSongSpec = null;
+let localSongMeta = null;
+let localSongRenderPromise = null;
+
+function songSourceText() {
+  const talk = typeof currentTalkText === "function" ? currentTalkText() : "";
+  const imagery = S.imagery.map((item) => item.word).filter(Boolean).join(" ");
+  const closing = ($("closingText")?.textContent || "").replace(/[「」]/g, "");
+  return [talk, imagery, closing, S.artworkName].filter(Boolean).join(" ").trim();
 }
-$("playBtn").onclick = () => {
-  if (!musicUrl) return;
+
+function songTitle() {
+  if (!localSongSpec) return "♪ 为这份心情写的一首歌";
+  const base = SONG_TITLES[localSongSpec.emotion] || SONG_TITLES["平静"];
+  const no = String(localSongSpec.seed % 100000).padStart(5, "0");
+  return `♪ ${base} · No.${no}`;
+}
+
+function prepareLocalSong() {
+  if (localSongSpec) return { spec: localSongSpec, meta: localSongMeta };
+  const localAnalyze = window.analyzeConfessionLocal
+    ? window.analyzeConfessionLocal(songSourceText())
+    : { emotion: S.emotion || "平静", dedication: "" };
+  const emotion = S.emotion && S.emotion !== "平静" ? S.emotion : (localAnalyze.emotion || "平静");
+  localSongSpec = window.composeSong(emotion);
+  localSongMeta = {
+    emotion,
+    dedication: localAnalyze.dedication || "这首歌照着此刻的心情写下来了。",
+    source: "browser-song-engine",
+  };
+  return { spec: localSongSpec, meta: localSongMeta };
+}
+
+async function renderLocalSongUrl() {
+  if (musicUrl) return musicUrl;
+  if (localSongRenderPromise) return localSongRenderPromise;
+  localSongRenderPromise = (async () => {
+    const { spec } = prepareLocalSong();
+    if (!window.renderSong || !window.audioBufferToWav) {
+      throw new Error("song-engine 未加载完整");
+    }
+    const buffer = await window.renderSong(spec, 90);
+    const blob = window.audioBufferToWav(buffer);
+    if (musicObjectUrl) URL.revokeObjectURL(musicObjectUrl);
+    musicObjectUrl = URL.createObjectURL(blob);
+    musicUrl = musicObjectUrl;
+    return musicUrl;
+  })().finally(() => { localSongRenderPromise = null; });
+  return localSongRenderPromise;
+}
+
+async function pollMusic() {
+  prepareLocalSong();
+  $("musicTitle").textContent = songTitle();
+  $("musicHint").textContent = "正在本地把这份心情写成一首歌";
+  try {
+    await renderLocalSongUrl();
+    $("musicTitle").textContent = songTitle();
+    $("musicHint").textContent = "已在本地生成 · 无需 API key 和网络";
+    $("playBtn").classList.add("pulsing");
+    updateAudioToggle();
+  } catch (error) {
+    console.warn("[song] 本地音乐生成失败:", error);
+    $("musicHint").textContent = "这台设备暂时没能生成声音";
+  }
+}
+
+$("playBtn").onclick = async () => {
   $("playBtn").classList.remove("pulsing");
   $("playBtn").textContent = "…";
-  sfx.play(musicUrl, () => { $("playBtn").textContent = "♪"; });
+  try {
+    await renderLocalSongUrl();
+    if (!musicUrl) return;
+    sfx.play(musicUrl, () => { $("playBtn").textContent = "♪"; });
+    $("musicHint").textContent = localSongMeta?.dedication || "正在播放本地生成的声音";
+    updateAudioToggle();
+  } catch (error) {
+    $("musicHint").textContent = "这台设备暂时没能播放这首歌";
+    console.warn("[song] 播放失败:", error);
+  } finally {
+    $("playBtn").textContent = "♪";
+  }
 };
 
 $("restartBtn").onclick = () => window.location.reload();
@@ -2644,33 +2746,90 @@ const SAMPLE_MEMOS = [
   { name: "风信", emo: "惊讶", date: "2026·07·02", quote: "一件小事忽然亮起来。",              song: "《 忽然 · Music Box 》" },
   { name: "夜舟", emo: "恐惧", date: "2026·07·05", quote: "你不是孤单地漂着。",                song: "《 归航 · Ambient 》" },
 ];
+const COLLECTION_STORE_KEY = "glassworks.collection.v1";
+const memoMusicCache = new Map();
+
+function readCollectionArchive() {
+  try {
+    const list = JSON.parse(localStorage.getItem(COLLECTION_STORE_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((item) => item && item.id) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeCollectionArchive(items) {
+  localStorage.setItem(COLLECTION_STORE_KEY, JSON.stringify(items.slice(0, 24)));
+}
+
+function cleanDisplayText(text) {
+  return String(text || "")
+    .replace(/[「」]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/([。！？!?])([，,、；;])/g, "$1")
+    .replace(/([，,、；;])([。！？!?])/g, "$2")
+    .trim();
+}
+
+function localMemoryLine(memo = null) {
+  const name = memo?.name || S.artworkName || "这件作品";
+  const anchor = memo?.anchor || S.imagery[0]?.word || "那一刻";
+  return `那时的自己，把「${anchor}」安放进了《${name}》。`;
+}
+
+function createTodayMemo() {
+  const today = new Date();
+  const date = `${today.getFullYear()}·${String(today.getMonth() + 1).padStart(2, "0")}·${String(today.getDate()).padStart(2, "0")}`;
+  const realComp = S.composition && S.composition.length
+    ? fitToJar(S.composition)
+    : mockComposition(999, S.emotion || "平静");
+  const id = S.archiveId || S.sessionId || `local-${Date.now()}`;
+  S.archiveId = id;
+  prepareLocalSong();
+  const anchor = S.imagery[0]?.word || "";
+  const memo = {
+    id,
+    createdAt: today.toISOString(),
+    name: S.artworkName,
+    emo: S.emotion || "平静",
+    date,
+    quote: cleanDisplayText($("closingText").textContent) || "你把它取了出来，亲手给了它形状。",
+    song: songTitle(),
+    songSpec: localSongSpec ? JSON.parse(JSON.stringify(localSongSpec)) : null,
+    songMeta: localSongMeta ? { ...localSongMeta } : null,
+    comp: realComp,
+    memory: localMemoryLine({ name: S.artworkName, anchor }),
+    anchor,
+    today: true,
+  };
+  S.finalSummary = memo.memory;
+  return memo;
+}
+
+function saveCollectionMemo(memo) {
+  const items = readCollectionArchive();
+  const next = [memo, ...items.filter((item) => item.id !== memo.id)];
+  writeCollectionArchive(next);
+  return next;
+}
 
 function buildCollection() {
   const grid = $("colGrid");
   grid.innerHTML = "";
 
-  const items = SAMPLE_MEMOS.map((m, i) => ({ ...m, comp: mockComposition(i + 1, m.emo) }));
+  let archived = readCollectionArchive();
 
   if (S.artworkName) {
-    const today = new Date();
-    const d = `${today.getFullYear()}·${String(today.getMonth() + 1).padStart(2, "0")}·${String(today.getDate()).padStart(2, "0")}`;
-    const realComp = S.composition && S.composition.length
-      ? fitToJar(S.composition)
-      : mockComposition(999, S.emotion || "平静");
-    items.unshift({
-      name: S.artworkName, emo: S.emotion || "平静", date: d,
-      quote: ($("closingText").textContent || "").replace(/[「」]/g, "") || "你把它取了出来，亲手给了它形状。",
-      song: musicUrl ? ($("musicTitle").textContent || "《 今日 · 一段声音 》") : "《 今日 · 尚未成形 》",
-      musicUrl,
-      sessionId: S.sessionId,
-      today: true,
-      comp: realComp,
-      memory: S.finalSummary || "",  // "当时的自己"总结；若还没生成，openMemo 里再兜底拉一次
-    });
+    archived = saveCollectionMemo(createTodayMemo());
     $("colTodayNote").innerHTML = `《 ${S.artworkName} 》 已 入 藏 · 点 开 罐 子 再 听 当 时 的 声 音`;
   } else {
     $("colTodayNote").innerHTML = "先 不 播 放 音 乐 · 点 开 某 只 情 绪 罐 子 查 看 详 情";
   }
+
+  const items = [
+    ...archived.map((m) => ({ ...m, today: S.archiveId ? m.id === S.archiveId : false })),
+    ...SAMPLE_MEMOS.map((m, i) => ({ ...m, id: `sample-${i}`, comp: mockComposition(i + 1, m.emo) })),
+  ];
 
   items.forEach((m, i) => {
     const num = String(items.length - i).padStart(2, "0");
@@ -2690,20 +2849,36 @@ function buildCollection() {
 }
 
 async function resolveMemoMusic(m) {
-  if (m.musicUrl || !m.today || !m.sessionId) return m;
-  $("memoSongHint").textContent = "— 正在取出这只罐子当时生成的声音 —";
-  for (let i = 0; i < 6; i += 1) {
-    const out = await api(`/api/sessions/${m.sessionId}/music`).catch(() => null);
-    if (out && out.status === "ready" && out.music) {
-      m.musicUrl = out.music.url;
-      m.song = `♪ ${out.music.title || m.name}`;
-      musicUrl = m.musicUrl;
+  if (m.musicUrl || (!m.today && !m.songSpec)) return m;
+  $("memoSongHint").textContent = "— 正在本地取出这只罐子的声音 —";
+  try {
+    if (m.songSpec) {
+      const cacheKey = m.id || String(m.songSpec.seed || "");
+      if (!memoMusicCache.has(cacheKey)) {
+        const buffer = await window.renderSong(m.songSpec, 90);
+        const blob = window.audioBufferToWav(buffer);
+        memoMusicCache.set(cacheKey, URL.createObjectURL(blob));
+      }
+      m.musicUrl = memoMusicCache.get(cacheKey);
+      m.song = m.song || songTitle();
       $("memoSong").textContent = m.song;
       return m;
     }
-    if (out && out.status === "failed") break;
-    await new Promise((r) => setTimeout(r, 1200));
+    await renderLocalSongUrl();
+    if (musicUrl) {
+      m.musicUrl = musicUrl;
+      m.song = m.song || songTitle();
+      $("memoSong").textContent = m.song;
+      return m;
+    }
+  } catch (error) {
+    console.warn("[song] 藏品音乐生成失败:", error);
   }
+  // 旧版后端轮询保留为历史路径；当前默认不用，避免依赖 API key/网络。
+  // for (let i = 0; i < 6; i += 1) {
+  //   const out = await api(`/api/sessions/${m.sessionId}/music`).catch(() => null);
+  //   if (out && out.status === "ready" && out.music) { ... }
+  // }
   return m;
 }
 
@@ -2741,27 +2916,19 @@ async function openMemo(m) {
   // "当时的自己"：只在有 memory 时显示；今日罐子若还没生成，兜底拉一次
   const memoryEl = $("memoMemory");
   const paintMemory = (text) => {
-    if (text && text.trim()) {
-      memoryEl.innerHTML = `<span class="label">当 时 的 自 己</span>${text.trim()}`;
+    const clean = cleanDisplayText(text);
+    if (clean) {
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = "当 时 的 自 己";
+      memoryEl.replaceChildren(label, document.createTextNode(clean));
       memoryEl.hidden = false;
     } else {
       memoryEl.hidden = true;
-      memoryEl.innerHTML = "";
+      memoryEl.replaceChildren();
     }
   };
-  paintMemory(m.memory);
-  if (m.today && !m.memory && S.sessionId) {
-    // 后台补拉一次；若已缓存 server 会直接返回
-    api(`/api/sessions/${S.sessionId}/final-summary`, { method: "GET" })
-      .then((out) => {
-        if (out && out.ok && out.summary) {
-          S.finalSummary = out.summary;
-          m.memory = out.summary;
-          paintMemory(out.summary);
-        }
-      })
-      .catch(() => {});
-  }
+  paintMemory(m.memory || (m.today ? localMemoryLine(m) : ""));
 
   // 用一个稳定容器替换罐子内容，避免 outerHTML 丢引用
   const slot = $("memoJarSlot");
@@ -2791,9 +2958,18 @@ function toggleMemoAudio() {
   if (!memoAudioUrl) return;
   const vinyl = $("memoVinyl");
   if (vinyl.classList.contains("playing")) {
-    sfx.stop();
+    sfx.pause();
     $("memoFoot").classList.remove("playing");
     vinyl.classList.remove("playing");
+    $("memoSongHint").textContent = "— 已暂停 · 再点黑胶从这里继续 —";
+    return;
+  }
+  const audio = sfx.currentAudio;
+  if (audio && audio.src === memoAudioUrl && audio.currentTime > 0 && !audio.ended) {
+    $("memoFoot").classList.add("playing");
+    vinyl.classList.add("playing");
+    $("memoSongHint").textContent = "— 正在继续播放这只罐子的声音 —";
+    sfx.resume();
     return;
   }
   $("memoFoot").classList.add("playing");
@@ -2835,6 +3011,7 @@ if (new URLSearchParams(location.search).get("dev") === "collection") {
     $("sceneCollection").classList.add("active");
     currentScene = "sceneCollection";
     document.body.dataset.scene = "sceneCollection"; // 让 safety/muteBtn 藏品间 CSS 规则也生效
+    updateAudioToggle();
   });
 }
 </script>

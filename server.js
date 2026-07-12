@@ -161,7 +161,7 @@ function analyzeText(text) {
   const summarySource = normalized.length > 120 ? `${normalized.slice(0, 120)}...` : normalized;
   const aiSummary = hitCount
     ? `用户围绕「${summarySource}」表达，核心情绪偏向${dominantEmotion}。`
-    : `用户表达了「${summarySource}」，当前情绪较为平静或尚未清晰命名。`;
+    : `用户留下了「${summarySource}」。`;
 
   return {
     aiSummary,
@@ -579,44 +579,15 @@ async function startMusicJob(record) {
   const existing = musicJobs.get(sessionId);
   if (existing && existing.status !== "failed") return existing;
 
-  const job = { status: "pending", startedAt: Date.now(), result: null, error: null };
+  // 旧版音乐生成在这里调用 services/music_service.py，再由 ember_music 生成/兜底 wav。
+  // 当前已切到前端 public/song-engine.js 本地作曲，避免 API key 和网络依赖。
+  const job = {
+    status: "failed",
+    startedAt: Date.now(),
+    result: null,
+    error: "server music generation disabled; browser song-engine handles offline music",
+  };
   musicJobs.set(sessionId, job);
-
-  (async () => {
-    try {
-      const response = await fetch(`${MUSIC_URL}/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          emotion: EMOTIONS_7.includes(record.dominantEmotion) ? record.dominantEmotion : "平静",
-          intensity: record.overallIntensity || 0,
-          aiSummary: record.aiSummary || "",
-          textInput: trimText([record.textInput, record.videoTranscript].filter(Boolean).join(" "), 2000),
-          sessionId,
-        }),
-        signal: AbortSignal.timeout(120000),
-      });
-      const data = await response.json();
-      if (!data.ok) throw new Error(data.error || "music service error");
-      job.status = "ready";
-      job.result = data.result;
-      const fresh = await readRecord(sessionId);
-      fresh.music = {
-        url: data.result.url,
-        title: data.result.title,
-        source: data.result.source,
-        emotion: data.result.emotion,
-        intensity: data.result.intensity,
-        elapsedSec: data.result.elapsed_sec,
-      };
-      await writeRecord(fresh);
-    } catch (error) {
-      console.warn(`[music] 生成失败 (${sessionId}): ${error.message}`);
-      job.status = "failed";
-      job.error = error.message;
-    }
-  })();
-
   return job;
 }
 
@@ -963,37 +934,12 @@ async function handleApi(req, res, url) {
         sendJson(res, 200, { ok: true, summary: record.finalSummary, cached: true });
         return;
       }
-      const text = trimText([record.textInput, record.videoTranscript].filter(Boolean).join(" "), 3000);
-      const imageryWords = (record.imagery || []).map((i) => i.word).filter(Boolean).slice(0, 8).join("、");
       const artworkName = record.artwork?.name || record.artworkName || "未命名";
-      const promptBody =
-        `【用户倾诉全文】\n${text || "（用户没有留下文字）"}\n\n` +
-        `【最重要的情绪锚点】${imageryWords || "（无）"}\n` +
-        `【主情绪】${record.dominantEmotion || "平静"}，强度 ${record.overallIntensity || 0}/100\n` +
-        `【中途的观察】${record.aiSummary || "（无）"}\n` +
-        `【作品名】《${trimText(artworkName, 20)}》\n\n` +
-        `请按要求写这一句总结（15-30 字）：`;
-      try {
-        const out = await callLLM(FINAL_SUMMARY_SYSTEM_PROMPT, promptBody, {
-          maxTokens: 200, temperature: 0.55, retries: 1,
-          responseFormat: { type: "json_object" },
-        });
-        const summary = trimText(out.summary, 80);
-        if (!summary) throw new Error("empty summary");
-        record.finalSummary = summary;
-        await writeRecord(record);
-        sendJson(res, 200, { ok: true, summary });
-      } catch (error) {
-        console.warn(`[final-summary] LLM 失败: ${error.message}`);
-        // 兜底：拼一句本地版，比空着好
-        const fallbackName = record.artwork?.name || record.artworkName || "无名";
-        const fallback = record.aiSummary
-          ? `那时的她，${trimText(record.aiSummary, 40)}，做成了《${trimText(fallbackName, 20)}》。`
-          : `那时的她把一段${record.dominantEmotion || "心事"}，做成了《${trimText(fallbackName, 20)}》。`;
-        record.finalSummary = fallback;
-        await writeRecord(record);
-        sendJson(res, 200, { ok: true, summary: fallback, fallback: true });
-      }
+      const anchor = (record.imagery || []).map((i) => i.word).filter(Boolean)[0] || "那一刻";
+      const summary = `那时的自己，把「${trimText(anchor, 12)}」安放进了《${trimText(artworkName, 20)}》。`;
+      record.finalSummary = summary;
+      await writeRecord(record);
+      sendJson(res, 200, { ok: true, summary, local: true });
       return;
     }
   }
@@ -1114,7 +1060,9 @@ function startMusicService() {
   return child;
 }
 
-if (process.env.EMBER_EXTERNAL !== "1") startMusicService();
+// 旧版 Python 音乐服务已停用：当前音乐由 public/song-engine.js 在浏览器端本地生成。
+// 如需回退旧链路，可临时取消下一行注释。
+// if (process.env.EMBER_EXTERNAL !== "1") startMusicService();
 
 server.listen(PORT, () => {
   console.log(`Ember local server running at http://localhost:${PORT}/`);
