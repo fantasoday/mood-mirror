@@ -96,7 +96,14 @@
   @keyframes breathe { 0%,100% { box-shadow: 0 10px 26px rgba(74,158,191,.45); } 50% { box-shadow: 0 10px 40px rgba(74,158,191,.75); } }
 
   /* ================= 2 镜像 ================= */
-  #sceneMirror { justify-content: center; gap: 18px; padding: 20px 20px 64px; }
+  #sceneMirror {
+    /* 镜像 SVG + 权限卡加起来会超出视口，改成竖向滚动窗，顶对齐从上往下看 */
+    justify-content: flex-start; gap: 18px; padding: 20px 20px 80px;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  #sceneMirror::-webkit-scrollbar { width: 4px; }
+  #sceneMirror::-webkit-scrollbar-thumb { background: rgba(91,155,181,.28); border-radius: 4px; }
   #mirrorFrame {
     width: min(78vw, 330px); background: #FAFDFF; border-radius: 22px; padding: 12px 12px 6px;
     box-shadow: 0 18px 50px rgba(90,140,170,.22); transition: all .9s ease;
@@ -706,7 +713,7 @@
       </g>
       <g id="benchPieces"></g>
     </svg>
-    <div id="benchSay">这些，就是刚才压在你心里的东西。<br/><small>点两下可以敲碎——碎片不会消失，它们是接下来要用的材料</small></div>
+    <div id="benchSay">这些，就是刚才压在你心里的东西。<br/><small>把想留住的完整块直接拖进画布；不想留的可以点两下敲碎，碎的就散在这儿</small></div>
     <div id="benchFoot"><button class="btn" id="toFurnaceBtn" disabled>送 入 熔 炉 →</button></div>
   </section>
 
@@ -2057,7 +2064,7 @@ function playBenchDemo() {
       bad.g.innerHTML = ["0,-16 18,-6 8,14 -14,10", "-16,-8 12,-14 14,8 -8,12", "-12,-12 14,-8 6,14"]
         .map((pts, i) => `<polygon class="shard-poly" points="${pts}" fill="${DEMO_BAD.color}" fill-opacity="0.8"
           transform="translate(${(i - 1) * 30} ${14 + i * 6}) rotate(${(i - 1) * 22}) scale(.8)"/>`).join("");
-      say(`碎了，但没有消失——碎片也能拼进去。<br/><small>想反过来也可以，这里没有标准答案</small>`);
+      say(`碎了，但没有消失——它们是要放下的部分。<br/><small>想留住的完整块，直接拖进画布就行</small>`);
       await wait(1900); if (cancelled) return;
 
       finish();
@@ -2145,6 +2152,11 @@ function addBenchPiece(p) {
   const layer = $("benchPieces");
   const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
   g.style.cursor = "grab";
+  // 敲碎后的小碎片：淡化 + 弱阴影，暗示"这是被放下的部分，不进画布"
+  if (p.broken) {
+    g.style.opacity = "0.45";
+    g.setAttribute("data-broken", "1");
+  }
   g.innerHTML = `
     <polygon class="shard-poly" points="${p.points}" fill="${p.color}" fill-opacity="0.85"/>
     ${p.word ? `<text class="shard-label" text-anchor="middle" y="5" font-size="12">${p.word}</text>` : ""}`;
@@ -2199,6 +2211,14 @@ function endDrag() {
   if (!moved) { tapPiece(p); return; }
   const inCanvas = p.x > CANVAS_RECT.x + 20 && p.x < CANVAS_RECT.x + CANVAS_RECT.w - 20 &&
                    p.y > CANVAS_RECT.y + 20 && p.y < CANVAS_RECT.y + CANVAS_RECT.h - 10;
+  // 敲碎后的小碎片是"被放下的部分"，进不了画布——推回画布上方
+  if (inCanvas && p.broken) {
+    p.y = CANVAS_RECT.y - 30;
+    p.x = clamp(p.x, 40, CANVAS_RECT.x + CANVAS_RECT.w - 40);
+    positionPiece(p);
+    $("benchSay").innerHTML = `碎的这些，是你想放下的部分——就让它们在这儿散着吧。<br/><small>把完整的那些拖进画布</small>`;
+    return;
+  }
   if (inCanvas && !p.placed) {
     p.placed = true;
     // 引导step2完成：第一块拖进爱心后收起虚线，之后不再提示
@@ -2206,7 +2226,7 @@ function endDrag() {
     // 用户跳过敲碎直接拖整块进来：点击引导也不用再教了
     if (!guide.tapDone) { guide.tapDone = true; removeGuide("tap"); }
     const PART_WORDS = ["心口", "边缘", "最亮的地方", "中心", "转角"];
-    $("benchSay").innerHTML = `这块${p.word ? `「${p.word}」` : "碎片"}，现在成了它${PART_WORDS[Math.floor(Math.random() * PART_WORDS.length)]}的一角 ✦`;
+    $("benchSay").innerHTML = `这块${p.word ? `「${p.word}」` : "它"}，现在成了它${PART_WORDS[Math.floor(Math.random() * PART_WORDS.length)]}的一角 ✦`;
   } else if (!inCanvas && p.placed) {
     p.placed = false;
   }
@@ -2264,7 +2284,7 @@ function shatterPiece(p) {
   flashLine.setAttribute("d", "M0 0 l-14 12 M0 0 l16 10 M0 0 l-4 -16 M0 0 l4 18");
   flashLine.setAttribute("stroke", "#fff"); flashLine.setAttribute("stroke-width", "1.6"); flashLine.setAttribute("fill", "none");
   p.el.appendChild(flashLine);
-  $("benchSay").innerHTML = `看，${p.word ? `「${p.word}」` : "它"}碎开的样子。它一直是这么压着的。<br/><small>碎片不会消失——它们是接下来要用的材料</small>`;
+  $("benchSay").innerHTML = `看，${p.word ? `「${p.word}」` : "它"}碎开的样子。它一直是这么压着的。<br/><small>碎的这些是要放下的部分——它们留在这儿散着，不进画布</small>`;
   setTimeout(() => {
     p.el.remove();
     benchPieces.splice(benchPieces.indexOf(p), 1);
