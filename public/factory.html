@@ -96,7 +96,7 @@
   @keyframes breathe { 0%,100% { box-shadow: 0 10px 26px rgba(74,158,191,.45); } 50% { box-shadow: 0 10px 40px rgba(74,158,191,.75); } }
 
   /* ================= 2 镜像 ================= */
-  #sceneMirror { justify-content: center; gap: 18px; padding: 20px; }
+  #sceneMirror { justify-content: center; gap: 18px; padding: 20px 20px 64px; }
   #mirrorFrame {
     width: min(78vw, 330px); background: #FAFDFF; border-radius: 22px; padding: 12px 12px 6px;
     box-shadow: 0 18px 50px rgba(90,140,170,.22); transition: all .9s ease;
@@ -644,7 +644,7 @@
         <small>摄像头画面不会上传。麦克风权限会在进入倾诉时请求，也可以不用摄像头，直接用麦克风或文字继续。</small>
       </p>
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:center">
-        <button class="btn" style="padding:13px 28px;font-size:15px" id="camBtn">开启摄像头和麦克风，开始倾诉</button>
+        <button class="btn" style="padding:13px 22px;font-size:14.5px;letter-spacing:2px;white-space:nowrap" id="camBtn">开摄像头和麦克风 · 开始</button>
         <button class="link" id="skipCamBtn">暂不开摄像头，直接用麦克风倾诉 →</button>
       </div>
     </div>
