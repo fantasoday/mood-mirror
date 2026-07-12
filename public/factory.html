@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>玻璃厂 · 一次情绪整合的仪式</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,11 +20,21 @@
     background: linear-gradient(170deg, #EDF6FA 0%, var(--ambient) 70%, #D2E7F1 100%);
     color: var(--ink); overflow: hidden;
     transition: background 1.2s ease;
+    /* 移动端：禁掉点击高亮、误选中文字、页面回弹位移 */
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
   }
+  /* 输入框/文本区仍允许选中与输入 */
+  input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
+  /* 按钮：去掉双击缩放延迟，只保留单击 */
+  button, .btn { touch-action: manipulation; }
   #stage { position: relative; width: 100%; height: 100vh; height: 100dvh; max-width: 520px; margin: 0 auto; }
 
   /* ---- 场景切换 ---- */
-  .scene { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; overflow: hidden; }
+  /* overflow-y:auto 作为兜底：内容超出视口时可滚动，正常适配时不出现滚动条 */
+  .scene { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
   .scene.active { display: flex; animation: sceneIn 1s ease both; }
   .scene.leaving { animation: sceneOut .6s ease both; }
   @keyframes sceneIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -1590,7 +1600,8 @@ function createLiveRecognition(runId) {
   rec.onstart = () => {
     liveSpeech.listening = true;
     liveSpeech.segmentStartedAt = performance.now();
-    $("micBtn").classList.add("recording");
+    // 录音视觉态由整段会话统一控制（见 startContinuousListening），
+    // 不在每次识别循环 onstart/onend 里增删，避免自然停顿时按钮蓝橙抖动
     $("micHint").textContent = "我在听…说完后点麦克风结束倾诉";
   };
   rec.onresult = (event) => {
@@ -1611,7 +1622,8 @@ function createLiveRecognition(runId) {
   rec.onend = () => {
     if (runId !== liveSpeech.runId) return;
     liveSpeech.listening = false;
-    $("micBtn").classList.remove("recording");
+    // 不在此处移除 recording 视觉态：识别循环会自动重启，移除会造成抖动。
+    // 真正结束（finishListening / 权限被拒）时才清除。
     if (liveSpeech.manualStop) return;
     if (liveSpeech.interimText.trim()) {
       appendLiveFinal(liveSpeech.interimText);
@@ -1645,6 +1657,8 @@ function startContinuousListening() {
   liveSpeech.manualStop = false;
   liveSpeech.finishing = false;
   $("micBtn").disabled = false;
+  // 整段倾诉会话期间保持录音视觉态（橙色），跨识别循环稳定不抖动
+  $("micBtn").classList.add("recording");
   startAudioCapture().catch(() => {
     $("micHint").textContent = "麦克风权限暂未开启；可以继续授权，或直接打字。";
   });
