@@ -42,6 +42,20 @@ class MusicEngine {
     return audio;
   }
 
+  get currentAudio() {
+    return this._audio;
+  }
+
+  pause() {
+    if (this._audio) this._audio.pause();
+  }
+
+  resume() {
+    if (!this._audio) return null;
+    this._audio.play().catch(() => {});
+    return this._audio;
+  }
+
   stop() {
     if (this._audio) { this._audio.pause(); this._audio = null; }
   }
