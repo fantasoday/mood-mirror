@@ -700,6 +700,33 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  // 保存一段倾诉录音（可多段），落盘到 data/audio/，记录进 session.voiceRecordings
+  const audioMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/audio$/);
+  if (req.method === "POST" && audioMatch) {
+    const record = await readRecord(audioMatch[1]);
+    const body = await readRawBody(req);
+    if (!body || body.length < 1200) {
+      sendJson(res, 400, { ok: false, error: "录音为空" });
+      return;
+    }
+    const contentType = req.headers["content-type"] || "audio/webm";
+    const ext = contentType.includes("mp4") ? "m4a" : (contentType.includes("wav") ? "wav" : "webm");
+    const audioDir = path.join(ROOT, "data", "audio");
+    await fs.mkdir(audioDir, { recursive: true });
+    const filename = `${record.sessionId}-${Date.now()}.${ext}`;
+    await fs.writeFile(path.join(audioDir, filename), body);
+    record.voiceRecordings = record.voiceRecordings || [];
+    record.voiceRecordings.push({
+      at: localIsoString(),
+      path: `/data/audio/${filename}`,
+      bytes: body.length,
+      mime: contentType,
+    });
+    await writeRecord(record);
+    sendJson(res, 201, { ok: true, path: `/data/audio/${filename}` });
+    return;
+  }
+
   const transcriptMatch = url.pathname.match(/^\/api\/sessions\/([^/]+)\/transcript$/);
   if (req.method === "PATCH" && transcriptMatch) {
     const body = await readBody(req);
