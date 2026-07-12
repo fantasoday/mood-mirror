@@ -2212,29 +2212,192 @@ $("toFurnaceBtn").onclick = () => {
 };
 
 /* ==================== 5 熔炉 ==================== */
+/* ==== 几何工具：凸包 + 平滑闭合曲线（把碎片熔成一件完整器物） ==== */
+function convexHull(points) {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+function smoothClosed(pts) {
+  const n = pts.length;
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  let m = mid(pts[0], pts[1 % n]);
+  let d = `M${m[0].toFixed(1)} ${m[1].toFixed(1)}`;
+  for (let i = 1; i <= n; i++) {
+    const p = pts[i % n], m2 = mid(p, pts[(i + 1) % n]);
+    d += ` Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${m2[0].toFixed(1)} ${m2[1].toFixed(1)}`;
+  }
+  return d + " Z";
+}
+
+let compSeq = 0;
 function buildComposition(targetG, { gold = false } = {}) {
   targetG.innerHTML = "";
-  S.composition.forEach((p) => {
-    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${p.rot}) scale(${p.scale})`);
-    g.innerHTML = `<polygon points="${p.points}" fill="${gold ? p.color : "#E8A468"}" fill-opacity="${gold ? 0.92 : 0.85}" stroke="${gold ? "#FFF" : "#FFE7C2"}" stroke-opacity=".7" stroke-width="1.4"/>`;
-    targetG.appendChild(g);
+  if (!S.composition.length) return;
+  const uid = `comp${compSeq += 1}`;
+  const NS = "http://www.w3.org/2000/svg";
+
+  // 1) 碎片位置向质心收拢——熔在一起，而不是散摆
+  const cx0 = S.composition.reduce((a, p) => a + p.x, 0) / S.composition.length;
+  const cy0 = S.composition.reduce((a, p) => a + p.y, 0) / S.composition.length;
+  const K = 0.62;
+  const pieces = S.composition.map((p) => {
+    const px = cx0 + (p.x - cx0) * K, py = cy0 + (p.y - cy0) * K;
+    const rad = (p.rot * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+    const pts = p.points.trim().split(/\s+/).map((s) => {
+      const [x, y] = s.split(",").map(Number);
+      const sx = x * p.scale, sy = y * p.scale;
+      return [px + sx * cos - sy * sin, py + sx * sin + sy * cos];
+    });
+    return { ...p, px, py, pts };
   });
-  if (gold && S.composition.length > 1) {
-    // 金缮：沿放置顺序连金线
-    const d = S.composition.map((p, i) => `${i ? "Q" : "M"}${i ? `${(S.composition[i - 1].x + p.x) / 2 + 14} ${(S.composition[i - 1].y + p.y) / 2 - 10} ` : ""}${p.x} ${p.y}`).join(" ");
-    const seam = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    seam.setAttribute("d", d);
-    seam.setAttribute("fill", "none");
-    seam.setAttribute("stroke", "var(--gold)");
-    seam.setAttribute("stroke-width", "4");
-    seam.setAttribute("stroke-linecap", "round");
-    const len = 600;
-    seam.setAttribute("stroke-dasharray", String(len));
-    seam.setAttribute("stroke-dashoffset", String(len));
-    seam.style.transition = "stroke-dashoffset 2.4s ease";
-    targetG.appendChild(seam);
-    requestAnimationFrame(() => requestAnimationFrame(() => { seam.style.strokeDashoffset = "0"; }));
+
+  // 2) 整体轮廓：所有顶点的凸包，外扩后平滑 → 一个圆润的"器物"外形
+  const hull = convexHull(pieces.flatMap((p) => p.pts));
+  const hc = hull.reduce((a, q) => [a[0] + q[0] / hull.length, a[1] + q[1] / hull.length], [0, 0]);
+  const pad = hull.map(([x, y]) => {
+    const dx = x - hc[0], dy = y - hc[1], d = Math.hypot(dx, dy) || 1;
+    const e = (d + 10) / d;
+    return [hc[0] + dx * e, hc[1] + dy * e];
+  });
+  const bodyD = smoothClosed(pad);
+  const domColor = pieces[0].color || "#9DB8C8";
+
+  // 3) 玻璃体：渐变 + 外描边
+  const defs = document.createElementNS(NS, "defs");
+  defs.innerHTML = gold
+    ? `<radialGradient id="${uid}g" cx=".38" cy=".3" r=".95">
+         <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+         <stop offset=".55" stop-color="${domColor}" stop-opacity=".38"/>
+         <stop offset="1" stop-color="${domColor}" stop-opacity=".62"/>
+       </radialGradient>
+       <clipPath id="${uid}c"><path d="${bodyD}"/></clipPath>`
+    : `<radialGradient id="${uid}g" cx=".42" cy=".38" r=".9">
+         <stop offset="0" stop-color="#FFE3BD" stop-opacity=".95"/>
+         <stop offset="1" stop-color="#E8935A" stop-opacity=".8"/>
+       </radialGradient>
+       <clipPath id="${uid}c"><path d="${bodyD}"/></clipPath>`;
+  targetG.appendChild(defs);
+
+  const body = document.createElementNS(NS, "path");
+  body.setAttribute("d", bodyD);
+  body.setAttribute("fill", `url(#${uid}g)`);
+  body.setAttribute("stroke", gold ? "#FFFFFF" : "#FFE7C2");
+  body.setAttribute("stroke-opacity", ".85");
+  body.setAttribute("stroke-width", "2");
+  targetG.appendChild(body);
+
+  // 4) 内部切面：原碎片作为玻璃的琢面纹理（裁在轮廓里）
+  const inner = document.createElementNS(NS, "g");
+  inner.setAttribute("clip-path", `url(#${uid}c)`);
+  pieces.forEach((p) => {
+    const poly = document.createElementNS(NS, "polygon");
+    poly.setAttribute("points", p.pts.map((q) => `${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" "));
+    poly.setAttribute("fill", gold ? p.color : "#E8A468");
+    poly.setAttribute("fill-opacity", gold ? ".45" : ".5");
+    poly.setAttribute("stroke", "#FFFFFF");
+    poly.setAttribute("stroke-opacity", ".35");
+    poly.setAttribute("stroke-width", "1");
+    inner.appendChild(poly);
+  });
+  // 高光：左上一弯月牙形反光，玻璃质感
+  const hi = document.createElementNS(NS, "ellipse");
+  hi.setAttribute("cx", (hc[0] - 14).toFixed(1));
+  hi.setAttribute("cy", (hc[1] - 18).toFixed(1));
+  hi.setAttribute("rx", "20"); hi.setAttribute("ry", "10");
+  hi.setAttribute("transform", `rotate(-24 ${hc[0] - 14} ${hc[1] - 18})`);
+  hi.setAttribute("fill", "#FFFFFF");
+  hi.setAttribute("fill-opacity", gold ? ".5" : ".35");
+  inner.appendChild(hi);
+  targetG.appendChild(inner);
+
+  if (gold) {
+    // 5) 金缮缝：相邻碎片之间的接缝（最小生成树），裁在器物内，弧线柔和
+    const parent = pieces.map((_, i) => i);
+    const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    const edges = [];
+    for (let i = 0; i < pieces.length; i++)
+      for (let j = i + 1; j < pieces.length; j++)
+        edges.push([Math.hypot(pieces[i].px - pieces[j].px, pieces[i].py - pieces[j].py), i, j]);
+    edges.sort((a, b) => a[0] - b[0]);
+    const seamG = document.createElementNS(NS, "g");
+    seamG.setAttribute("clip-path", `url(#${uid}c)`);
+    let k = 0;
+    for (const [, i, j] of edges) {
+      if (find(i) === find(j)) continue;
+      parent[find(i)] = find(j);
+      const a = pieces[i], b = pieces[j];
+      const mx = (a.px + b.px) / 2, my = (a.py + b.py) / 2;
+      const dx = b.px - a.px, dy = b.py - a.py, L = Math.hypot(dx, dy) || 1;
+      const off = Math.min(9, L * 0.22) * (k % 2 ? 1 : -1);
+      // 缝延长到穿过整块玻璃（像真实金缮裂缝，不是点到点的短线）
+      const ex = dx / L * 26, ey = dy / L * 26;
+      const seam = document.createElementNS(NS, "path");
+      seam.setAttribute("d",
+        `M${(a.px - ex).toFixed(1)} ${(a.py - ey).toFixed(1)} Q${(mx - dy / L * off).toFixed(1)} ${(my + dx / L * off).toFixed(1)} ${(b.px + ex).toFixed(1)} ${(b.py + ey).toFixed(1)}`);
+      seam.setAttribute("fill", "none");
+      seam.setAttribute("stroke", "var(--gold)");
+      seam.setAttribute("stroke-width", "3.2");
+      seam.setAttribute("stroke-linecap", "round");
+      seam.setAttribute("pathLength", "100");
+      seam.setAttribute("stroke-dasharray", "100");
+      seam.setAttribute("stroke-dashoffset", "100");
+      seam.style.transition = `stroke-dashoffset 1.6s ease ${(0.5 + k * 0.35).toFixed(2)}s`;
+      seamG.appendChild(seam);
+      k += 1;
+    }
+    targetG.appendChild(seamG);
+
+    // 6) 金描边勾勒整件器物 + 顶部小金环（挂坠感，呼应藏品间的麻绳）
+    const rim = document.createElementNS(NS, "path");
+    rim.setAttribute("d", bodyD);
+    rim.setAttribute("fill", "none");
+    rim.setAttribute("stroke", "var(--gold)");
+    rim.setAttribute("stroke-width", "2.4");
+    rim.setAttribute("stroke-opacity", ".9");
+    rim.setAttribute("pathLength", "100");
+    rim.setAttribute("stroke-dasharray", "100");
+    rim.setAttribute("stroke-dashoffset", "100");
+    rim.style.transition = "stroke-dashoffset 2.2s ease .2s";
+    targetG.appendChild(rim);
+
+    const top = pad.reduce((a, q) => (q[1] < a[1] ? q : a), pad[0]);
+    const ring = document.createElementNS(NS, "circle");
+    ring.setAttribute("cx", top[0].toFixed(1));
+    ring.setAttribute("cy", (top[1] - 7).toFixed(1));
+    ring.setAttribute("r", "5");
+    ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", "var(--gold)");
+    ring.setAttribute("stroke-width", "2.6");
+    targetG.appendChild(ring);
+
+    // 7) 两粒星光点缀
+    [[hc[0] + 26, hc[1] - 24, 1], [hc[0] - 30, hc[1] + 16, 0.7]].forEach(([x, y, s]) => {
+      const sp = document.createElementNS(NS, "path");
+      sp.setAttribute("d", `M${x} ${y - 5 * s} L${x + 1.4 * s} ${y - 1.4 * s} L${x + 5 * s} ${y} L${x + 1.4 * s} ${y + 1.4 * s} L${x} ${y + 5 * s} L${x - 1.4 * s} ${y + 1.4 * s} L${x - 5 * s} ${y} L${x - 1.4 * s} ${y - 1.4 * s} Z`);
+      sp.setAttribute("fill", "var(--gold)");
+      sp.setAttribute("opacity", "0");
+      sp.style.transition = `opacity 1s ease ${(1.6 + Math.random()).toFixed(2)}s`;
+      targetG.appendChild(sp);
+      requestAnimationFrame(() => requestAnimationFrame(() => { sp.style.opacity = ".85"; }));
+    });
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      rim.style.strokeDashoffset = "0";
+      seamG.querySelectorAll("path").forEach((s) => { s.style.strokeDashoffset = "0"; });
+    }));
   }
 }
 
